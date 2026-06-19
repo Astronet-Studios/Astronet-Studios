@@ -1,0 +1,130 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Astryx | Websites That Move Business</title>
+  <meta name="description" content="Astryx designs and builds high-performance websites for ambitious brands." />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Sora:wght@400;600;700;800&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <div class="bg-orb orb-a" aria-hidden="true"></div>
+  <div class="bg-orb orb-b" aria-hidden="true"></div>
+
+  <header class="site-header">
+    <a href="#top" class="brand" aria-label="Astryx home">
+      <img
+        src="astryx-logo.jpg"
+        alt="Astryx"
+        class="brand-logo"
+        onerror="this.style.display='none'; this.nextElementSibling.style.display='inline-flex';"
+      />
+      <span class="brand-fallback" aria-hidden="true">ASTRYX</span>
+    </a>
+
+    <button class="menu-toggle" aria-label="Open menu" aria-expanded="false">Menu</button>
+
+    <nav class="main-nav" aria-label="Main">
+      <a href="#services">Services</a>
+      <a href="#work">Work</a>
+      <a href="#process">Process</a>
+      <a href="#contact">Contact</a>
+    </nav>
+  </header>
+
+  <main id="top">
+    <section class="hero reveal">
+      <p class="kicker">Web Agency</p>
+      <h1>We build websites that feel <span>inevitable</span>.</h1>
+      <p class="hero-copy">
+        Astryx crafts bold, conversion-focused websites for startups and growing teams.
+        Fast builds. Sharp design. Clean code.
+      </p>
+      <div class="hero-actions">
+        <a class="btn btn-primary" href="#contact">Start Your Project</a>
+        <a class="btn btn-secondary" href="#work">See Our Style</a>
+      </div>
+      <ul class="hero-metrics" aria-label="Key outcomes">
+        <li><strong>3x</strong><span>faster launch cycles</span></li>
+        <li><strong>98+</strong><span>performance scores</span></li>
+        <li><strong>42%</strong><span>average lead lift</span></li>
+      </ul>
+    </section>
+
+    <section id="services" class="section reveal">
+      <h2>What Astryx Delivers</h2>
+      <div class="card-grid">
+        <article class="card">
+          <h3>Brand-First Design</h3>
+          <p>Distinct visual systems that make your company instantly recognizable.</p>
+        </article>
+        <article class="card">
+          <h3>Conversion UX</h3>
+          <p>Page architecture tuned for leads, sales, signups, and meaningful action.</p>
+        </article>
+        <article class="card">
+          <h3>Performance Build</h3>
+          <p>Lean, responsive sites optimized for speed, accessibility, and SEO.</p>
+        </article>
+      </div>
+    </section>
+
+    <section id="work" class="section reveal">
+      <div class="split">
+        <div>
+          <h2>Built for Companies That Are Going Somewhere</h2>
+          <p>
+            From early-stage founders to established teams, Astryx turns rough ideas into
+            polished digital experiences that earn trust in seconds.
+          </p>
+        </div>
+        <div class="work-panel">
+          <p class="panel-title">Recent Build Snapshot</p>
+          <ul>
+            <li>Fintech landing architecture redesign</li>
+            <li>Medical SaaS multi-page marketing site</li>
+            <li>Recruiting platform content migration + rebrand</li>
+          </ul>
+        </div>
+      </div>
+    </section>
+
+    <section id="process" class="section reveal">
+      <h2>How We Work</h2>
+      <div class="steps">
+        <article>
+          <span>01</span>
+          <h3>Strategy Sprint</h3>
+          <p>We define audience, goals, and message before touching design.</p>
+        </article>
+        <article>
+          <span>02</span>
+          <h3>Visual Direction</h3>
+          <p>We shape a bold art direction aligned with your brand signal.</p>
+        </article>
+        <article>
+          <span>03</span>
+          <h3>Build + Launch</h3>
+          <p>We develop, optimize, QA, and ship with a fast feedback loop.</p>
+        </article>
+      </div>
+    </section>
+
+    <section id="contact" class="section cta reveal">
+      <h2>Need a website that stands out on purpose?</h2>
+      <p>Tell us what you are building and Astryx will map the fastest path to launch.</p>
+      <a class="btn btn-primary" href="mailto:hello@astryx.studio">hello@astryx.studio</a>
+    </section>
+  </main>
+
+  <footer class="site-footer">
+    <p>Astryx - Website Studio</p>
+    <p>Designed for speed, clarity, and impact.</p>
+  </footer>
+
+  <script src="script.js"></script>
+</body>
+</html>
