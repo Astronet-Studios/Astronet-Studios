@@ -305,6 +305,15 @@ main {
   color: var(--muted);
 }
 
+.work-panel a {
+  color: var(--ink);
+  text-decoration-color: rgba(216, 182, 255, 0.65);
+}
+
+.work-panel a:hover {
+  color: #d8b6ff;
+}
+
 .steps {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));

@@ -1,0 +1,13 @@
+services:
+  - type: web
+    name: astryx-website
+    env: static
+    plan: free
+    rootDir: Client
+    buildCommand: ""
+    staticPublishPath: .
+    pullRequestPreviewsEnabled: true
+    routes:
+      - type: rewrite
+        source: /*
+        destination: /index.html
