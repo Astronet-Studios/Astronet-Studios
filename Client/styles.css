@@ -353,6 +353,70 @@ main {
   color: var(--muted);
 }
 
+.pricing-layout {
+  padding-bottom: 1rem;
+}
+
+.pricing-hero {
+  padding: 6.2rem 0 2.5rem;
+}
+
+.pricing-table-wrap {
+  border: 1px solid rgba(193, 153, 255, 0.34);
+  border-radius: 22px;
+  overflow: hidden;
+  background: linear-gradient(155deg, rgba(159, 120, 255, 0.14), rgba(255, 255, 255, 0.03));
+  box-shadow: var(--shadow);
+}
+
+.pricing-table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.pricing-table th,
+.pricing-table td {
+  padding: 1rem 1.1rem;
+  text-align: left;
+  vertical-align: top;
+}
+
+.pricing-table thead th {
+  background: rgba(255, 255, 255, 0.06);
+  font-family: "Space Mono", monospace;
+  font-size: 0.86rem;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: #eddfff;
+}
+
+.pricing-table tbody tr {
+  border-top: 1px solid rgba(193, 153, 255, 0.18);
+}
+
+.pricing-table tbody tr:nth-child(even) {
+  background: rgba(255, 255, 255, 0.025);
+}
+
+.pricing-table td {
+  color: var(--muted);
+}
+
+.pricing-table td strong {
+  color: var(--ink);
+}
+
+.pricing-notes {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 1rem;
+  padding: 2rem 0 4rem;
+}
+
+.pricing-notes .card h2 {
+  margin-top: 0;
+}
+
 .site-footer {
   border-top: 1px solid rgba(193, 153, 255, 0.25);
   padding: 1.2rem 6vw 2rem;
@@ -420,7 +484,8 @@ main {
   .card-grid,
   .steps,
   .hero-metrics,
-  .split {
+  .split,
+  .pricing-notes {
     grid-template-columns: 1fr;
   }
 
@@ -458,5 +523,13 @@ main {
 
   .brand-logo {
     height: 74px;
+  }
+
+  .pricing-table-wrap {
+    overflow-x: auto;
+  }
+
+  .pricing-table {
+    min-width: 640px;
   }
 }

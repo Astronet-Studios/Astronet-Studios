@@ -1,0 +1,307 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Astryx | Pricing Chart</title>
+  <meta name="description" content="Astryx pricing chart for websites, e-commerce builds, extra pages, feature add-ons, and maintenance tiers." />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Sora:wght@400;600;700;800&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body class="pricing-page">
+  <div class="starfield" aria-hidden="true"></div>
+  <div class="bg-orb orb-a" aria-hidden="true"></div>
+  <div class="bg-orb orb-b" aria-hidden="true"></div>
+
+  <header class="site-header">
+    <a href="index.html" class="brand" aria-label="Astryx home">
+      <svg class="brand-logo" viewBox="0 0 220 180" role="img" aria-label="Astryx logo">
+        <defs>
+          <linearGradient id="aStroke" x1="0" y1="0" x2="1" y2="1">
+            <stop offset="0%" stop-color="#f7f2ff" />
+            <stop offset="100%" stop-color="#cbb8ff" />
+          </linearGradient>
+          <linearGradient id="orbit" x1="0" y1="0" x2="1" y2="1">
+            <stop offset="0%" stop-color="#81b8ff" />
+            <stop offset="100%" stop-color="#c993ff" />
+          </linearGradient>
+          <filter id="logoGlow" x="-30%" y="-30%" width="160%" height="160%">
+            <feGaussianBlur stdDeviation="2.4" result="blur" />
+            <feMerge>
+              <feMergeNode in="blur" />
+              <feMergeNode in="SourceGraphic" />
+            </feMerge>
+          </filter>
+        </defs>
+        <path d="M110 14 L54 130 H78 L92 100 H128 L142 130 H166 Z M100 78 L110 56 L120 78 Z" fill="none" stroke="url(#aStroke)" stroke-width="8" stroke-linejoin="round" filter="url(#logoGlow)"/>
+        <ellipse cx="112" cy="86" rx="70" ry="22" fill="none" stroke="url(#orbit)" stroke-width="4" transform="rotate(-18 112 86)" filter="url(#logoGlow)" />
+        <circle cx="168" cy="73" r="4" fill="#ffffff" />
+        <path d="M94 106 l4 10 l10 4 l-10 4 l-4 10 l-4-10 l-10-4 l10-4 z" fill="#e9deff" opacity="0.9" />
+        <text x="110" y="168" text-anchor="middle" fill="#ece4ff" font-size="30" font-family="Space Mono, monospace" letter-spacing="9">ASTRYX</text>
+      </svg>
+    </a>
+
+    <button class="menu-toggle" aria-label="Open menu" aria-expanded="false">Menu</button>
+
+    <nav class="main-nav" aria-label="Main">
+      <a href="index.html">Home</a>
+      <a href="index.html#services">Services</a>
+      <a href="index.html#work">Work</a>
+      <a href="index.html#contact">Contact</a>
+    </nav>
+  </header>
+
+  <main class="pricing-layout" id="top">
+    <section class="pricing-hero reveal">
+      <p class="kicker">Pricing Chart</p>
+      <h1>Clear pricing for every build stage.</h1>
+      <p class="hero-copy">
+        Use this chart to get a fast sense of project ranges, support options, and
+        the kinds of sites Astryx typically builds.
+      </p>
+      <div class="hero-actions">
+        <a class="btn btn-primary" href="index.html#contact">Start a Project</a>
+        <a class="btn btn-secondary" href="index.html">Back to Home</a>
+      </div>
+    </section>
+
+    <section class="section reveal">
+      <h2>Initial Project Pricing Guide</h2>
+      <div class="pricing-table-wrap">
+        <table class="pricing-table">
+          <thead>
+            <tr>
+              <th scope="col">Category</th>
+              <th scope="col">Price Range</th>
+              <th scope="col">Notes</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td><strong>Starter Website</strong></td>
+              <td>$1,000–$2,500</td>
+              <td>3–5 pages</td>
+            </tr>
+            <tr>
+              <td><strong>Business Website</strong></td>
+              <td>$2,500–$5,000</td>
+              <td>6–10 pages</td>
+            </tr>
+            <tr>
+              <td><strong>Premium Website</strong></td>
+              <td>$5,000–$10,000</td>
+              <td>10–20 pages</td>
+            </tr>
+            <tr>
+              <td><strong>E-Commerce Website</strong></td>
+              <td>$500+</td>
+              <td>Shopify or other e-commerce platform setup</td>
+            </tr>
+            <tr>
+              <td><strong>Extra Pages</strong></td>
+              <td>$100–$300 each</td>
+              <td>Complexity varies</td>
+            </tr>
+            <tr>
+              <td><strong>Feature Add-Ons</strong></td>
+              <td>$100–$5,000</td>
+              <td>Depends on feature</td>
+            </tr>
+            <tr>
+              <td><strong>Maintenance Tier 1</strong></td>
+              <td>$49/mo</td>
+              <td>Basic updates</td>
+            </tr>
+            <tr>
+              <td><strong>Maintenance Tier 2</strong></td>
+              <td>$149/mo</td>
+              <td>Growth support</td>
+            </tr>
+            <tr>
+              <td><strong>Maintenance Tier 3</strong></td>
+              <td>$299/mo</td>
+              <td>Business support</td>
+            </tr>
+            <tr>
+              <td><strong>Maintenance Tier 4</strong></td>
+              <td>$499–$1,200/mo</td>
+              <td>Full management</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <section class="section reveal">
+      <h2>Extra Pages Price Guide</h2>
+      <div class="pricing-table-wrap">
+        <table class="pricing-table">
+          <thead>
+            <tr>
+              <th scope="col">Page Type</th>
+              <th scope="col">Typical Cost</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td><strong>Simple Page (About, Contact)</strong></td>
+              <td>$100–$200</td>
+            </tr>
+            <tr>
+              <td><strong>Service/Product Page</strong></td>
+              <td>$150–$300</td>
+            </tr>
+            <tr>
+              <td><strong>Blog/Article Template</strong></td>
+              <td>$200–$400</td>
+            </tr>
+            <tr>
+              <td><strong>Landing Page (high-conversion)</strong></td>
+              <td>$300–$800</td>
+            </tr>
+            <tr>
+              <td><strong>Portfolio/Gallery Page</strong></td>
+              <td>$300–$800</td>
+            </tr>
+            <tr>
+              <td><strong>Custom Interactive Page</strong></td>
+              <td>$500–$1,500</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+    
+    <section class="section reveal">
+      <h2>Feature Pricing Guide</h2>
+      <div class="pricing-table-wrap">
+        <table class="pricing-table">
+          <thead>
+            <tr>
+              <th scope="col">Feature</th>
+              <th scope="col">Added Cost</th>
+              <th scope="col">Notes</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td><strong>Custom Animations</strong></td>
+              <td>$150–$600</td>
+              <td>Scroll effects, hover effects, transitions</td>
+            </tr>
+            <tr>
+              <td><strong>Advanced Forms</strong></td>
+              <td>$150–$500</td>
+              <td>Multi-step forms, conditional logic</td>
+            </tr>
+            <tr>
+              <td><strong>Booking System</strong></td>
+              <td>$300–$1,200</td>
+              <td>Calendars, scheduling, notifications</td>
+            </tr>
+            <tr>
+              <td><strong>Membership/Login System</strong></td>
+              <td>$800–$3,000</td>
+              <td>User accounts, dashboards</td>
+            </tr>
+            <tr>
+              <td><strong>Custom Dashboard</strong></td>
+              <td>$1,000–$5,000</td>
+              <td>Admin panels, analytics</td>
+            </tr>
+            <tr>
+              <td><strong>SEO Setup</strong></td>
+              <td>$200–$800</td>
+              <td>Metadata, indexing, speed optimization</td>
+            </tr>
+            <tr>
+              <td><strong>Branding Package</strong></td>
+              <td>$300–$1,000</td>
+              <td>Logo, color palette, typography</td>
+            </tr>
+            <tr>
+              <td><strong>Product Upload (Shopify)</strong></td>
+              <td>$5–$15 per product</td>
+              <td>Includes images, variants, tags</td>
+            </tr>
+            <tr>
+              <td><strong>App Integrations</strong></td>
+              <td>$100–$400 each</td>
+              <td>Reviews, upsells, subscriptions</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <section class="section reveal">
+      <h2>Maintenance &amp; Change Packages (Monthly)</h2>
+      <div class="pricing-table-wrap">
+        <table class="pricing-table">
+          <thead>
+            <tr>
+              <th scope="col">Tier</th>
+              <th scope="col">Monthly Cost</th>
+              <th scope="col">What's Included</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td><strong>Tier 1 - Basic Care</strong></td>
+              <td>$49/month</td>
+              <td>Minor text/image updates, security checks, uptime monitoring</td>
+            </tr>
+            <tr>
+              <td><strong>Tier 2 - Growth Care</strong></td>
+              <td>$149/month</td>
+              <td>Up to 3 small changes per month, speed optimization, monthly SEO check, bug fixes</td>
+            </tr>
+            <tr>
+              <td><strong>Tier 3 - Business Care</strong></td>
+              <td>$299/month</td>
+              <td>Up to 10 changes per month, new sections/pages, priority support, monthly analytics report</td>
+            </tr>
+            <tr>
+              <td><strong>Tier 4 - Full Management</strong></td>
+              <td>$499–$1,200/month</td>
+              <td>Unlimited changes, monthly redesign improvements, full SEO management, conversion optimization, A/B testing, dedicated support</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <section class="pricing-notes reveal">
+      <article class="card">
+        <h2>What affects the final quote?</h2>
+        <p>
+          Scope, page count, custom features, integrations, and content readiness all
+          shape the final investment.
+        </p>
+      </article>
+      <article class="card">
+        <h2>Need help choosing a tier?</h2>
+        <p>
+          Send a quick note with your goals and Astryx can recommend the most practical
+          starting point.
+        </p>
+      </article>
+    </section>
+
+    <section class="section cta reveal">
+      <h2>Want a tailored estimate?</h2>
+      <p>Reach out with your project details and get the best-fit pricing path.</p>
+      <a class="btn btn-primary" href="mailto:astryxwebsites@gmail.com">astryxwebsites@gmail.com</a>
+    </section>
+  </main>
+
+  <footer class="site-footer">
+    <p>Astryx Websites</p>
+    <p>Pricing chart for planning and scoping.</p>
+  </footer>
+
+  <script src="script.js"></script>
+</body>
+</html>
