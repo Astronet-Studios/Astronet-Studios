@@ -1,0 +1,143 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Astronet Studios | Admin Dashboard</title>
+  <meta name="description" content="Astronet Studios admin dashboard for clients, invoices, payment status, and incoming requests." />
+  <link rel="icon" type="image/png" href="Astronet Studios Logo.png" />
+  <link rel="apple-touch-icon" href="Astronet Studios Logo.png" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Sora:wght@400;600;700;800&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body class="portal-page" data-page="admin-dashboard">
+  <div class="starfield" aria-hidden="true"></div>
+  <div class="bg-orb orb-a" aria-hidden="true"></div>
+  <div class="bg-orb orb-b" aria-hidden="true"></div>
+
+  <header class="site-header">
+    <a href="index.html" class="brand" aria-label="Astronet Studios home">
+      <img src="Astronet Studios Logo.png" alt="Astronet Studios logo" class="brand-logo" />
+    </a>
+    <div class="portal-header-actions">
+      <p id="admin-user" class="portal-user-label"></p>
+      <button type="button" class="btn btn-secondary" id="logout-button">Logout</button>
+    </div>
+  </header>
+
+  <main class="portal-shell">
+    <section class="portal-hero reveal show">
+      <p class="kicker">Admin Dashboard</p>
+      <h1>Manage clients, invoices, and incoming work.</h1>
+      <p class="hero-copy">Create client accounts, issue invoices to the portal, review payment status, and track support or change requests.</p>
+    </section>
+
+    <section class="portal-grid portal-grid-wide reveal show">
+      <article class="portal-card">
+        <p class="panel-title">Add Client</p>
+        <form id="client-form" class="portal-form compact-form admin-form">
+          <input type="hidden" name="clientId" />
+          <label>
+            <span>Company Name</span>
+            <input type="text" name="companyName" required />
+          </label>
+          <label>
+            <span>Contact Name</span>
+            <input type="text" name="fullName" required />
+          </label>
+          <label>
+            <span>Email</span>
+            <input type="email" name="email" required />
+          </label>
+          <label>
+            <span>Password</span>
+            <input type="text" name="password" placeholder="Optional. Leave blank to auto-generate." />
+          </label>
+          <label>
+            <span>Website URL</span>
+            <input type="url" name="websiteUrl" placeholder="https://clientsite.com" />
+          </label>
+          <label>
+            <span>Website Status</span>
+            <select name="websiteStatus">
+              <option value="active">Active</option>
+              <option value="maintenance">Maintenance</option>
+              <option value="offline">Offline</option>
+            </select>
+          </label>
+          <label>
+            <span>Subscription Plan</span>
+            <select name="subscriptionPlan">
+              <option value="Tier 1 - Basic Care">Tier 1 - Basic Care</option>
+              <option value="Tier 2 - Growth Care">Tier 2 - Growth Care</option>
+              <option value="Tier 3 - Business Care">Tier 3 - Business Care</option>
+              <option value="Tier 4 - Full Management">Tier 4 - Full Management</option>
+            </select>
+          </label>
+          <div class="form-button-row">
+            <button type="submit" class="btn btn-primary">Save Client</button>
+            <button type="button" class="btn btn-secondary" id="client-form-reset">Clear</button>
+          </div>
+          <p class="form-message" id="client-form-message" aria-live="polite"></p>
+        </form>
+      </article>
+
+      <article class="portal-card">
+        <p class="panel-title">Create Invoice</p>
+        <form id="invoice-form" class="portal-form compact-form admin-form">
+          <label>
+            <span>Client</span>
+            <select name="clientId" id="invoice-client-select" required></select>
+          </label>
+          <label>
+            <span>Description</span>
+            <input type="text" name="description" required placeholder="Monthly maintenance" />
+          </label>
+          <label>
+            <span>Amount (USD)</span>
+            <input type="number" name="amountDollars" required min="1" step="0.01" />
+          </label>
+          <label>
+            <span>Due Date</span>
+            <input type="date" name="dueDate" required />
+          </label>
+          <button type="submit" class="btn btn-primary">Create Invoice</button>
+          <p class="form-message" id="invoice-form-message" aria-live="polite"></p>
+        </form>
+      </article>
+    </section>
+
+    <section class="portal-grid portal-grid-wide reveal show">
+      <article class="portal-card">
+        <p class="panel-title">Clients</p>
+        <div id="admin-clients" class="table-shell"></div>
+      </article>
+
+      <article class="portal-card">
+        <p class="panel-title">Invoices</p>
+        <div id="admin-invoices" class="table-shell"></div>
+      </article>
+
+      <article class="portal-card">
+        <p class="panel-title">Website Change Requests</p>
+        <div id="admin-change-requests" class="request-list"></div>
+      </article>
+
+      <article class="portal-card">
+        <p class="panel-title">Support Questions</p>
+        <div id="admin-support-questions" class="request-list"></div>
+      </article>
+
+      <article class="portal-card">
+        <p class="panel-title">Subscription Change Requests</p>
+        <div id="admin-subscription-requests" class="request-list"></div>
+      </article>
+    </section>
+  </main>
+
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="portal.js"></script>
+</body>
+</html>

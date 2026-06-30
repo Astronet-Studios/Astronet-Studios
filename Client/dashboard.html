@@ -1,0 +1,132 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Astronet Studios | Client Dashboard</title>
+  <meta name="description" content="Astronet Studios client dashboard for invoices, subscription plans, support, and website change requests." />
+  <link rel="icon" type="image/png" href="Astronet Studios Logo.png" />
+  <link rel="apple-touch-icon" href="Astronet Studios Logo.png" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Sora:wght@400;600;700;800&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body class="portal-page" data-page="client-dashboard">
+  <div class="starfield" aria-hidden="true"></div>
+  <div class="bg-orb orb-a" aria-hidden="true"></div>
+  <div class="bg-orb orb-b" aria-hidden="true"></div>
+
+  <header class="site-header">
+    <a href="index.html" class="brand" aria-label="Astronet Studios home">
+      <img src="Astronet Studios Logo.png" alt="Astronet Studios logo" class="brand-logo" />
+    </a>
+    <div class="portal-header-actions">
+      <p id="dashboard-user" class="portal-user-label"></p>
+      <button type="button" class="btn btn-secondary" id="logout-button">Logout</button>
+    </div>
+  </header>
+
+  <main class="portal-shell">
+    <section class="portal-hero reveal show">
+      <p class="kicker">Client Dashboard</p>
+      <h1>Project visibility without email back-and-forth.</h1>
+      <p class="hero-copy">Check your website status, review invoices, request updates, and ask support questions in one place.</p>
+    </section>
+
+    <section class="portal-grid reveal show">
+      <article class="portal-card stat-card">
+        <p class="panel-title">Website Status</p>
+        <h2 id="website-status">Loading...</h2>
+        <p id="website-url" class="muted-copy"></p>
+      </article>
+      <article class="portal-card stat-card">
+        <p class="panel-title">Subscription Plan</p>
+        <h2 id="subscription-plan">Loading...</h2>
+        <p class="muted-copy">Plan changes can be requested below.</p>
+      </article>
+      <article class="portal-card stat-card">
+        <p class="panel-title">Open Invoices</p>
+        <h2 id="invoice-balance">$0.00</h2>
+        <p class="muted-copy" id="invoice-balance-caption">No unpaid invoices.</p>
+      </article>
+    </section>
+
+    <section class="portal-grid portal-grid-wide reveal show">
+      <article class="portal-card">
+        <div class="section-heading-row">
+          <div>
+            <p class="panel-title">Invoices</p>
+            <h2>Current and previous invoices</h2>
+          </div>
+        </div>
+        <div id="client-invoices" class="table-shell"></div>
+      </article>
+
+      <article class="portal-card">
+        <p class="panel-title">Change Subscription Plan</p>
+        <form id="subscription-form" class="portal-form compact-form">
+          <label>
+            <span>Requested Plan</span>
+            <select name="requestedPlan" required>
+              <option value="Tier 1 - Basic Care">Tier 1 - Basic Care</option>
+              <option value="Tier 2 - Growth Care">Tier 2 - Growth Care</option>
+              <option value="Tier 3 - Business Care">Tier 3 - Business Care</option>
+              <option value="Tier 4 - Full Management">Tier 4 - Full Management</option>
+            </select>
+          </label>
+          <label>
+            <span>Notes</span>
+            <textarea name="notes" rows="4" placeholder="What do you need from the new plan?"></textarea>
+          </label>
+          <button type="submit" class="btn btn-primary">Submit Plan Change</button>
+          <p class="form-message" id="subscription-message" aria-live="polite"></p>
+        </form>
+      </article>
+
+      <article class="portal-card">
+        <p class="panel-title">Submit a Website Change</p>
+        <form id="change-request-form" class="portal-form compact-form">
+          <label>
+            <span>Request Title</span>
+            <input type="text" name="title" required placeholder="Homepage hero update" />
+          </label>
+          <label>
+            <span>Priority</span>
+            <select name="priority">
+              <option value="low">Low</option>
+              <option value="normal" selected>Normal</option>
+              <option value="high">High</option>
+            </select>
+          </label>
+          <label>
+            <span>Details</span>
+            <textarea name="description" rows="5" required placeholder="Describe the change you want made."></textarea>
+          </label>
+          <button type="submit" class="btn btn-primary">Submit Change Request</button>
+          <p class="form-message" id="change-request-message" aria-live="polite"></p>
+        </form>
+      </article>
+
+      <article class="portal-card">
+        <p class="panel-title">Help Support</p>
+        <form id="support-form" class="portal-form compact-form">
+          <label>
+            <span>Subject</span>
+            <input type="text" name="subject" required placeholder="Question about analytics" />
+          </label>
+          <label>
+            <span>Your Question</span>
+            <textarea name="message" rows="5" required placeholder="Ask anything related to your website or service."></textarea>
+          </label>
+          <button type="submit" class="btn btn-primary">Submit Question</button>
+          <p class="form-message" id="support-message" aria-live="polite"></p>
+        </form>
+      </article>
+    </section>
+  </main>
+
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="portal.js"></script>
+</body>
+</html>

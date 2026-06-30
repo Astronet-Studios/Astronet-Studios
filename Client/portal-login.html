@@ -1,0 +1,55 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Astronet Studios | Client Portal</title>
+  <meta name="description" content="Astronet Studios secure client portal for dashboards, invoices, support, and website change requests." />
+  <link rel="icon" type="image/png" href="Astronet Studios Logo.png" />
+  <link rel="apple-touch-icon" href="Astronet Studios Logo.png" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Sora:wght@400;600;700;800&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body class="portal-page" data-page="login">
+  <div class="starfield" aria-hidden="true"></div>
+  <div class="bg-orb orb-a" aria-hidden="true"></div>
+  <div class="bg-orb orb-b" aria-hidden="true"></div>
+
+  <header class="site-header">
+    <a href="index.html" class="brand" aria-label="Astronet Studios home">
+      <img src="Astronet Studios Logo.png" alt="Astronet Studios logo" class="brand-logo" />
+    </a>
+    <nav class="main-nav portal-nav" aria-label="Portal navigation">
+      <a href="index.html">Home</a>
+      <a href="pricing.html">Pricing</a>
+    </nav>
+  </header>
+
+  <main class="portal-shell portal-login-shell">
+    <section class="portal-login-card reveal show">
+      <div>
+        <p class="kicker">Secure Access</p>
+        <h1>Client portal</h1>
+        <div class="portal-mode-toggle" role="tablist" aria-label="Login mode">
+        </div>
+        <form id="login-form" class="portal-form">
+          <label>
+            <span>Email</span>
+            <input type="email" name="email" required placeholder="you@company.com" />
+          </label>
+          <label>
+            <span>Password</span>
+            <input type="password" name="password" required placeholder="Enter your password" />
+          </label>
+          <button type="submit" class="btn btn-primary">Login</button>
+          <p class="form-message" id="login-message" aria-live="polite"></p>
+        </form>
+      </div>
+    </section>
+  </main>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="portal.js"></script>
+</body>
+</html>
