@@ -2,6 +2,17 @@ let supabaseClient;
 let authSession;
 let currentMode = 'client';
 let adminClientState = [];
+const maintenanceTierLabels = {
+  'Tier 1 - Basic Care': 'Tier 1 - Basic Care ($49/month)',
+  'Tier 2 - Growth Care': 'Tier 2 - Growth Care ($149/month)',
+  'Tier 3 - Business Care': 'Tier 3 - Business Care ($299/month)',
+  'Tier 4 - Full Management': 'Tier 4 - Full Management ($499-$1,200/month)',
+};
+const maintenanceTierAmounts = {
+  'Tier 1 - Basic Care': 49,
+  'Tier 2 - Growth Care': 149,
+  'Tier 3 - Business Care': 299,
+};
 
 document.addEventListener('DOMContentLoaded', async () => {
   const page = document.body.dataset.page;
@@ -56,17 +67,30 @@ function setMessage(target, message, isError = false) {
 }
 
 async function apiFetch(path, options = {}) {
-  const { data } = await supabaseClient.auth.getSession();
-  authSession = data.session;
+  const sendRequest = async () => {
+    const { data } = await supabaseClient.auth.getSession();
+    authSession = data.session;
 
-  const response = await fetch(path, {
-    ...options,
-    headers: {
-      'Content-Type': 'application/json',
-      Authorization: `Bearer ${authSession?.access_token || ''}`,
-      ...(options.headers || {}),
-    },
-  });
+    return fetch(path, {
+      ...options,
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${authSession?.access_token || ''}`,
+        ...(options.headers || {}),
+      },
+    });
+  };
+
+  let response = await sendRequest();
+
+  if (response.status === 401) {
+    const { data, error } = await supabaseClient.auth.refreshSession();
+
+    if (!error && data.session) {
+      authSession = data.session;
+      response = await sendRequest();
+    }
+  }
 
   if (response.status === 204) {
     return null;
@@ -144,7 +168,7 @@ async function initClientDashboard() {
 function renderClientDashboard(data) {
   document.getElementById('website-status').textContent = capitalize(data.clientAccount.website_status);
   document.getElementById('website-url').textContent = data.clientAccount.website_url || 'Website URL not added yet.';
-  document.getElementById('subscription-plan').textContent = data.clientAccount.subscription_plan;
+  document.getElementById('subscription-plan').textContent = formatMaintenanceTier(data.clientAccount.subscription_plan);
 
   const unpaidTotal = data.openInvoices.reduce((sum, invoice) => sum + Number(invoice.amount_dollars || 0), 0);
   document.getElementById('invoice-balance').textContent = formatCurrency(unpaidTotal);
@@ -174,7 +198,7 @@ function renderClientDashboard(data) {
           <tr>
             <td>
               <strong>${invoice.invoice_number}</strong>
-              <div class="table-subcopy">${invoice.description || 'Website services'}</div>
+              <div class="table-subcopy">${formatInvoiceDescription(invoice.description)}</div>
             </td>
             <td><span class="status-pill status-${invoice.status}">${capitalize(invoice.status)}</span></td>
             <td>${formatCurrency(invoice.amount_dollars)}</td>
@@ -280,8 +304,8 @@ async function loadAdminOverview() {
     <span class="status-pill status-${item.status}">${capitalize(item.status)}</span>
   `);
   renderRequestList('admin-subscription-requests', data.subscriptionRequests, (item) => `
-    <h3>${item.requested_plan}</h3>
-    <p>Current plan: ${item.current_plan || 'Unknown'}</p>
+    <h3>${formatMaintenanceTier(item.requested_plan)}</h3>
+    <p>Current plan: ${item.current_plan ? formatMaintenanceTier(item.current_plan) : 'Unknown'}</p>
     <p>${item.notes || 'No extra notes.'}</p>
     <span class="status-pill status-${item.status}">${capitalize(item.status)}</span>
   `);
@@ -320,7 +344,7 @@ function renderAdminClients(clients) {
               <span class="status-pill status-${client.website_status}">${capitalize(client.website_status)}</span>
               <div class="table-subcopy">${client.website_url || 'No URL added'}</div>
             </td>
-            <td>${client.subscription_plan}</td>
+            <td>${formatMaintenanceTier(client.subscription_plan)}</td>
             <td>${client.invoice_count} total / ${formatCurrency(client.unpaid_total_dollars)} unpaid</td>
             <td>
               <div class="table-button-row">
@@ -382,7 +406,7 @@ function renderAdminInvoices(invoices, clients) {
             <tr>
               <td>
                 <strong>${invoice.invoice_number}</strong>
-                <div class="table-subcopy">${invoice.description || 'Website services'}</div>
+                <div class="table-subcopy">${formatInvoiceDescription(invoice.description)}</div>
               </td>
               <td>${client?.profile.company_name || 'Unknown client'}</td>
               <td><span class="status-pill status-${invoice.status}">${capitalize(invoice.status)}</span></td>
@@ -434,6 +458,14 @@ function bindAdminForms() {
   const clientForm = document.getElementById('client-form');
   const invoiceForm = document.getElementById('invoice-form');
   const resetButton = document.getElementById('client-form-reset');
+  const invoiceTierField = invoiceForm.elements.maintenanceTier;
+  const invoiceDescriptionField = invoiceForm.elements.invoiceDescription;
+  const invoiceAmountField = invoiceForm.elements.amountDollars;
+
+  invoiceTierField.addEventListener('change', () => {
+    const selectedTier = invoiceTierField.value;
+    invoiceAmountField.placeholder = selectedTier === 'Tier 4 - Full Management' ? '0.00 plus custom Tier 4 total' : '0.00';
+  });
 
   clientForm.addEventListener('submit', async (event) => {
     event.preventDefault();
@@ -472,6 +504,14 @@ function bindAdminForms() {
 
     const formData = new FormData(invoiceForm);
     const payload = Object.fromEntries(formData.entries());
+    const maintenanceTier = payload.maintenanceTier;
+    const additionalAmount = Number(payload.amountDollars || 0);
+    const baseAmount = maintenanceTierAmounts[maintenanceTier] || 0;
+
+    payload.description = buildInvoiceDescription(maintenanceTier, payload.invoiceDescription);
+    payload.amountDollars = (baseAmount + additionalAmount).toFixed(2);
+    delete payload.maintenanceTier;
+    delete payload.invoiceDescription;
 
     try {
       const result = await apiFetch('/api/admin/invoices', {
@@ -479,6 +519,8 @@ function bindAdminForms() {
         body: JSON.stringify(payload),
       });
       invoiceForm.reset();
+      invoiceAmountField.value = '0.00';
+      invoiceAmountField.placeholder = '0.00';
       setMessage(messageNode, result.warning ? `Invoice created. ${result.warning}` : 'Invoice created and added to the client dashboard.');
       await loadAdminOverview();
     } catch (error) {
@@ -521,6 +563,31 @@ function capitalize(value) {
   return String(value || '')
     .replace(/_/g, ' ')
     .replace(/\b\w/g, (letter) => letter.toUpperCase());
+}
+
+function formatMaintenanceTier(value) {
+  return maintenanceTierLabels[value] || value || 'Unknown';
+}
+
+function formatInvoiceDescription(value) {
+  const description = value || 'Website services';
+  const matchingTier = Object.keys(maintenanceTierLabels).find((tier) => description.startsWith(tier));
+
+  if (!matchingTier) {
+    return description;
+  }
+
+  return description.replace(matchingTier, maintenanceTierLabels[matchingTier]);
+}
+
+function buildInvoiceDescription(maintenanceTier, invoiceDescription) {
+  const details = String(invoiceDescription || '').trim();
+
+  if (!details) {
+    return maintenanceTier;
+  }
+
+  return `${maintenanceTier} | ${details}`;
 }
 
 function formatCurrency(amount) {

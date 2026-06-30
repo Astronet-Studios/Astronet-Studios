@@ -69,10 +69,10 @@
           <label>
             <span>Subscription Plan</span>
             <select name="subscriptionPlan">
-              <option value="Tier 1 - Basic Care">Tier 1 - Basic Care</option>
-              <option value="Tier 2 - Growth Care">Tier 2 - Growth Care</option>
-              <option value="Tier 3 - Business Care">Tier 3 - Business Care</option>
-              <option value="Tier 4 - Full Management">Tier 4 - Full Management</option>
+              <option value="Tier 1 - Basic Care">Tier 1 - Basic Care ($49/month)</option>
+              <option value="Tier 2 - Growth Care">Tier 2 - Growth Care ($149/month)</option>
+              <option value="Tier 3 - Business Care">Tier 3 - Business Care ($299/month)</option>
+              <option value="Tier 4 - Full Management">Tier 4 - Full Management ($499-$1,200/month)</option>
             </select>
           </label>
           <div class="form-button-row">
@@ -91,12 +91,22 @@
             <select name="clientId" id="invoice-client-select" required></select>
           </label>
           <label>
-            <span>Description</span>
-            <input type="text" name="description" required placeholder="Monthly maintenance" />
+            <span>Maintenance Tier</span>
+            <select name="maintenanceTier" required>
+              <option value="" selected disabled>Select a maintenance tier</option>
+              <option value="Tier 1 - Basic Care">Tier 1 - Basic Care ($49/month)</option>
+              <option value="Tier 2 - Growth Care">Tier 2 - Growth Care ($149/month)</option>
+              <option value="Tier 3 - Business Care">Tier 3 - Business Care ($299/month)</option>
+              <option value="Tier 4 - Full Management">Tier 4 - Full Management ($499-$1,200/month)</option>
+            </select>
           </label>
           <label>
-            <span>Amount (USD)</span>
-            <input type="number" name="amountDollars" required min="0.01" step="0.01" inputmode="decimal" placeholder="5.30" />
+            <span>Invoice Description</span>
+            <input type="text" name="invoiceDescription" placeholder="Extra pages, rush edits, SEO work" />
+          </label>
+          <label>
+            <span>Additional Amount (USD)</span>
+            <input type="number" name="amountDollars" required min="0" step="0.01" inputmode="decimal" placeholder="0.00" value="0.00" />
           </label>
           <label>
             <span>Due Date</span>
