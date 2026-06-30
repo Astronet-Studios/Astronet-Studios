@@ -146,7 +146,7 @@ function renderClientDashboard(data) {
   document.getElementById('website-url').textContent = data.clientAccount.website_url || 'Website URL not added yet.';
   document.getElementById('subscription-plan').textContent = data.clientAccount.subscription_plan;
 
-  const unpaidTotal = data.openInvoices.reduce((sum, invoice) => sum + invoice.amount_cents, 0) / 100;
+  const unpaidTotal = data.openInvoices.reduce((sum, invoice) => sum + Number(invoice.amount_dollars || 0), 0);
   document.getElementById('invoice-balance').textContent = formatCurrency(unpaidTotal);
   document.getElementById('invoice-balance-caption').textContent = data.openInvoices.length
     ? `${data.openInvoices.length} unpaid invoice${data.openInvoices.length === 1 ? '' : 's'}`
@@ -177,7 +177,7 @@ function renderClientDashboard(data) {
               <div class="table-subcopy">${invoice.description || 'Website services'}</div>
             </td>
             <td><span class="status-pill status-${invoice.status}">${capitalize(invoice.status)}</span></td>
-            <td>${formatCurrency(invoice.amount_cents / 100)}</td>
+            <td>${formatCurrency(invoice.amount_dollars)}</td>
             <td>${invoice.due_date || 'N/A'}</td>
             <td>
               ${invoice.square_payment_link_url ? `<a class="btn btn-secondary btn-small" href="${invoice.square_payment_link_url}" target="_blank" rel="noopener noreferrer">Pay Invoice</a>` : invoice.status !== 'paid' ? `<button type="button" class="btn btn-secondary btn-small pay-link-button" data-invoice-id="${invoice.id}">Pay Invoice</button>` : '<span class="muted-copy">Paid</span>'}
@@ -321,7 +321,7 @@ function renderAdminClients(clients) {
               <div class="table-subcopy">${client.website_url || 'No URL added'}</div>
             </td>
             <td>${client.subscription_plan}</td>
-            <td>${client.invoice_count} total / ${formatCurrency(client.unpaid_total_cents / 100)} unpaid</td>
+            <td>${client.invoice_count} total / ${formatCurrency(client.unpaid_total_dollars)} unpaid</td>
             <td>
               <div class="table-button-row">
                 <button type="button" class="btn btn-secondary btn-small edit-client-button" data-client-id="${client.id}">Edit</button>
@@ -386,7 +386,7 @@ function renderAdminInvoices(invoices, clients) {
               </td>
               <td>${client?.profile.company_name || 'Unknown client'}</td>
               <td><span class="status-pill status-${invoice.status}">${capitalize(invoice.status)}</span></td>
-              <td>${formatCurrency(invoice.amount_cents / 100)}</td>
+              <td>${formatCurrency(invoice.amount_dollars)}</td>
               <td>${invoice.due_date || 'N/A'}</td>
               <td>
                 ${invoice.status !== 'paid' ? `<button type="button" class="btn btn-secondary btn-small mark-paid-button" data-invoice-id="${invoice.id}">Mark Paid</button>` : '<span class="muted-copy">Settled</span>'}
@@ -406,7 +406,7 @@ function renderAdminInvoices(invoices, clients) {
           method: 'PUT',
           body: JSON.stringify({
             description: invoice.description,
-            amountDollars: invoice.amount_cents / 100,
+            amountDollars: invoice.amount_dollars,
             currency: invoice.currency,
             dueDate: invoice.due_date,
             status: 'paid',

@@ -63,13 +63,21 @@ function buildInvoiceNumber() {
   return `INV-${stamp}-${shortId}`;
 }
 
-function parseInvoiceAmountCents(body) {
+function parseInvoiceAmountDollars(body) {
   if (body.amountDollars !== undefined && body.amountDollars !== null && body.amountDollars !== '') {
     const normalizedAmount = String(body.amountDollars).replace(/[$,\s]/g, '');
-    return Math.round(Number(normalizedAmount) * 100);
+    return Number(normalizedAmount);
   }
 
-  return Number(body.amountCents);
+  if (body.amount_cents !== undefined && body.amount_cents !== null && body.amount_cents !== '') {
+    return Number(body.amount_cents) / 100;
+  }
+
+  if (body.amountCents !== undefined && body.amountCents !== null && body.amountCents !== '') {
+    return Number(body.amountCents) / 100;
+  }
+
+  return Number(body.amount_dollars);
 }
 
 function deriveRole(profile, email) {
@@ -195,7 +203,7 @@ async function createSquarePaymentLink(invoice, clientAccount, profile) {
       quick_pay: {
         name: `${invoice.invoice_number} for ${profile.company_name || profile.full_name || profile.email}`,
         price_money: {
-          amount: invoice.amount_cents,
+          amount: Math.round(Number(invoice.amount_dollars) * 100),
           currency: invoice.currency || 'USD',
         },
         location_id: process.env.SQUARE_LOCATION_ID,
@@ -271,13 +279,13 @@ async function enrichClients(clientAccounts) {
     const clientInvoices = invoicesByClientId.get(account.id) || [];
     const unpaidTotal = clientInvoices
       .filter((invoice) => invoice.status !== 'paid')
-      .reduce((sum, invoice) => sum + invoice.amount_cents, 0);
+      .reduce((sum, invoice) => sum + Number(invoice.amount_dollars || 0), 0);
 
     return {
       ...account,
       profile,
       invoice_count: clientInvoices.length,
-      unpaid_total_cents: unpaidTotal,
+      unpaid_total_dollars: unpaidTotal,
     };
   });
 }
@@ -749,7 +757,7 @@ app.post('/api/admin/invoices', authMiddleware, requireAdmin, async (req, res) =
       client_id: req.body.clientId,
       invoice_number: req.body.invoiceNumber || buildInvoiceNumber(),
       description: req.body.description,
-      amount_cents: parseInvoiceAmountCents(req.body),
+      amount_dollars: parseInvoiceAmountDollars(req.body),
       currency: req.body.currency || 'USD',
       due_date: req.body.dueDate,
       status: req.body.status || 'unpaid',
@@ -799,7 +807,7 @@ app.put('/api/admin/invoices/:invoiceId', authMiddleware, requireAdmin, async (r
   try {
     const payload = {
       description: req.body.description,
-      amount_cents: parseInvoiceAmountCents(req.body),
+      amount_dollars: parseInvoiceAmountDollars(req.body),
       currency: req.body.currency || 'USD',
       due_date: req.body.dueDate,
       status: req.body.status,
