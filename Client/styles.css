@@ -437,8 +437,10 @@ main {
   height: 48px;
   border: 1px solid rgba(30, 136, 255, 0.6);
   border-radius: 999px;
-  color: var(--ink);
-  background: transparent;
+  color: #ffffff;
+  background: rgba(10, 14, 30, 0.7);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
   box-shadow: 0 8px 20px rgba(30, 136, 255, 0.22);
   font-size: 1.25rem;
   line-height: 1;
@@ -448,6 +450,10 @@ main {
   pointer-events: none;
   transition: opacity 0.2s ease, transform 0.2s ease;
   z-index: 30;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
 }
 
 .back-to-top.visible {
