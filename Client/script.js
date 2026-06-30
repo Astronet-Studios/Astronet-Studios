@@ -33,3 +33,19 @@ const observer = new IntersectionObserver(
 );
 
 revealItems.forEach((item) => observer.observe(item));
+
+const backToTopButton = document.querySelector('.back-to-top');
+
+if (backToTopButton) {
+  const toggleBackToTop = () => {
+    backToTopButton.classList.toggle('visible', window.scrollY > 300);
+  };
+
+  window.addEventListener('scroll', toggleBackToTop, { passive: true });
+
+  backToTopButton.addEventListener('click', () => {
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  });
+
+  toggleBackToTop();
+}
