@@ -1,4 +1,7 @@
 User-agent: *
 Allow: /
+Disallow: /admin.html
+Disallow: /dashboard.html
+Disallow: /portal-login.html
 
 Sitemap: https://astronetstudios.com/sitemap.xml
