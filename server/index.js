@@ -59,7 +59,10 @@ function normalizeError(error, fallbackMessage) {
 
 function buildInvoiceNumber() {
   const stamp = new Date().toISOString().slice(0, 10).replace(/-/g, '');
-  const shortId = crypto.randomBytes(2).toString('hex').toUpperCase();
+  const shortId = Array.from(crypto.randomBytes(4))
+    .map((byte) => (byte % 36).toString(36))
+    .join('')
+    .toUpperCase();
   return `INV-${stamp}-${shortId}`;
 }
 
@@ -755,7 +758,7 @@ app.post('/api/admin/invoices', authMiddleware, requireAdmin, async (req, res) =
     const profile = await getProfileByUserId(account.profile_id);
     const invoicePayload = {
       client_id: req.body.clientId,
-      invoice_number: req.body.invoiceNumber || buildInvoiceNumber(),
+      invoice_number: buildInvoiceNumber(),
       description: req.body.description,
       amount_dollars: parseInvoiceAmountDollars(req.body),
       currency: req.body.currency || 'USD',
