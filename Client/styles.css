@@ -106,24 +106,26 @@ body {
   top: 0;
   z-index: 20;
   display: flex;
+  height: 112px;
   align-items: center;
   justify-content: space-between;
   gap: 1rem;
-  padding: 1rem 6vw;
+  padding: 0 6vw 0 0;
   backdrop-filter: blur(8px);
   background: rgba(10, 14, 39, 0.8);
   border-bottom: 1px solid rgba(30, 136, 255, 0.2);
 }
 
 .brand {
-  display: inline-flex;
+  display: flex;
+  height: 100%;
   align-items: center;
   text-decoration: none;
   color: var(--ink);
 }
 
 .brand-logo {
-  height: 88px;
+  height: 100%;
   width: auto;
   display: block;
   filter: drop-shadow(0 0 18px rgba(30, 136, 255, 0.4));
@@ -805,8 +807,9 @@ main {
     display: inline-flex;
   }
 
-  .brand-logo {
-    height: 74px;
+  .site-header {
+    height: 92px;
+    padding-right: 4vw;
   }
 
   .pricing-table-wrap {
