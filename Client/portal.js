@@ -18,7 +18,12 @@ document.addEventListener('DOMContentLoaded', async () => {
   const page = document.body.dataset.page;
 
   try {
-    const config = await fetch('/api/config').then((response) => response.json());
+    const configResponse = await fetch('/api/config');
+    const config = await readJsonResponse(configResponse, 'Unable to load portal configuration.');
+
+    if (!configResponse.ok) {
+      throw new Error(config.error || 'Portal API is unavailable. Deploy the Node server and confirm /api/config is reachable.');
+    }
 
     if (!config.supabaseUrl || !config.supabaseAnonKey) {
       setMessage(document.querySelector('.form-message') || document.body, 'Configure Supabase environment variables before using the portal.', true);
@@ -66,6 +71,24 @@ function setMessage(target, message, isError = false) {
   target.classList.toggle('is-success', !isError && Boolean(message));
 }
 
+async function readJsonResponse(response, fallbackMessage) {
+  const raw = await response.text();
+
+  if (!raw) {
+    return {};
+  }
+
+  try {
+    return JSON.parse(raw);
+  } catch (_error) {
+    if (!response.ok) {
+      throw new Error(`${fallbackMessage} Server returned ${response.status} ${response.statusText}.`);
+    }
+
+    throw new Error(fallbackMessage);
+  }
+}
+
 async function apiFetch(path, options = {}) {
   const sendRequest = async () => {
     const { data } = await supabaseClient.auth.getSession();
@@ -96,7 +119,7 @@ async function apiFetch(path, options = {}) {
     return null;
   }
 
-  const payload = await response.json();
+  const payload = await readJsonResponse(response, 'Request failed.');
   if (!response.ok) {
     throw new Error(payload.error || 'Request failed.');
   }
