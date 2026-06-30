@@ -406,7 +406,7 @@ function renderAdminInvoices(invoices, clients) {
           method: 'PUT',
           body: JSON.stringify({
             description: invoice.description,
-            amountCents: invoice.amount_cents,
+            amountDollars: invoice.amount_cents / 100,
             currency: invoice.currency,
             dueDate: invoice.due_date,
             status: 'paid',
@@ -472,8 +472,6 @@ function bindAdminForms() {
 
     const formData = new FormData(invoiceForm);
     const payload = Object.fromEntries(formData.entries());
-    payload.amountCents = Math.round(Number(payload.amountDollars) * 100);
-    delete payload.amountDollars;
 
     try {
       const result = await apiFetch('/api/admin/invoices', {

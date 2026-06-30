@@ -25,7 +25,7 @@ create table if not exists public.invoices (
   client_id uuid not null references public.client_accounts (id) on delete cascade,
   invoice_number text not null unique,
   description text,
-  amount_cents integer not null check (amount_cents > 0),
+  amount_dollars integer not null check (amount_dollars > 0),
   currency text not null default 'USD',
   status text not null default 'unpaid' check (status in ('draft', 'unpaid', 'paid', 'overdue')),
   due_date date,

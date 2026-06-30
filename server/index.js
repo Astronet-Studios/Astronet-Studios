@@ -63,6 +63,15 @@ function buildInvoiceNumber() {
   return `INV-${stamp}-${shortId}`;
 }
 
+function parseInvoiceAmountCents(body) {
+  if (body.amountDollars !== undefined && body.amountDollars !== null && body.amountDollars !== '') {
+    const normalizedAmount = String(body.amountDollars).replace(/[$,\s]/g, '');
+    return Math.round(Number(normalizedAmount) * 100);
+  }
+
+  return Number(body.amountCents);
+}
+
 function deriveRole(profile, email) {
   if (profile && profile.role) {
     return profile.role;
@@ -740,7 +749,7 @@ app.post('/api/admin/invoices', authMiddleware, requireAdmin, async (req, res) =
       client_id: req.body.clientId,
       invoice_number: req.body.invoiceNumber || buildInvoiceNumber(),
       description: req.body.description,
-      amount_cents: Number(req.body.amountCents),
+      amount_cents: parseInvoiceAmountCents(req.body),
       currency: req.body.currency || 'USD',
       due_date: req.body.dueDate,
       status: req.body.status || 'unpaid',
@@ -790,7 +799,7 @@ app.put('/api/admin/invoices/:invoiceId', authMiddleware, requireAdmin, async (r
   try {
     const payload = {
       description: req.body.description,
-      amount_cents: Number(req.body.amountCents),
+      amount_cents: parseInvoiceAmountCents(req.body),
       currency: req.body.currency || 'USD',
       due_date: req.body.dueDate,
       status: req.body.status,
