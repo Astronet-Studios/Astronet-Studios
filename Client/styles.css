@@ -584,6 +584,13 @@ main {
   resize: vertical;
 }
 
+.portal-form input[readonly] {
+  background: rgba(15, 23, 42, 0.9);
+  border-color: rgba(66, 165, 245, 0.4);
+  color: #dfe9ff;
+  font-weight: 700;
+}
+
 .form-message {
   min-height: 1.25rem;
   margin: 0;
@@ -726,6 +733,52 @@ main {
   grid-template-columns: repeat(2, minmax(0, 1fr));
 }
 
+.admin-form .form-inline-pair {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 1rem;
+  grid-column: 1 / -1;
+}
+
+.invoice-pricing-preview {
+  grid-column: 1 / -1;
+  border: 1px solid rgba(66, 165, 245, 0.3);
+  border-radius: 14px;
+  background: rgba(12, 22, 48, 0.7);
+  padding: 0.9rem;
+  display: grid;
+  gap: 0.45rem;
+}
+
+.invoice-pricing-title {
+  margin: 0 0 0.2rem;
+  color: #dfe9ff;
+  font-weight: 700;
+}
+
+.invoice-pricing-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  color: var(--muted);
+  font-size: 0.94rem;
+}
+
+.invoice-pricing-row strong {
+  color: #f5f8ff;
+}
+
+.invoice-pricing-row.total-row {
+  padding-top: 0.2rem;
+  border-top: 1px solid rgba(66, 165, 245, 0.2);
+}
+
+.invoice-pricing-row.grand-total-row {
+  color: #ffffff;
+  font-weight: 700;
+}
+
 .admin-form .form-button-row,
 .admin-form .form-message,
 .admin-form label:last-of-type,
@@ -814,6 +867,10 @@ main {
 
   .hero {
     padding-top: 4.5rem;
+  }
+
+  .admin-form .form-inline-pair {
+    grid-template-columns: 1fr;
   }
 
   .main-nav {

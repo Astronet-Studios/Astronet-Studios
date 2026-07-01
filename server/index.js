@@ -3,6 +3,8 @@ const path = require('path');
 
 const dotenv = require('dotenv');
 const express = require('express');
+const nodemailer = require('nodemailer');
+const PDFDocument = require('pdfkit');
 const { createClient } = require('@supabase/supabase-js');
 
 dotenv.config();
@@ -14,6 +16,47 @@ const publicAppUrl = process.env.PUBLIC_APP_URL || `http://localhost:${PORT}`;
 const squareBaseUrl = process.env.SQUARE_ENVIRONMENT === 'production'
   ? 'https://connect.squareup.com'
   : 'https://connect.squareupsandbox.com';
+const maintenanceTierAmounts = {
+  'Tier 1 - Basic Care': 49,
+  'Tier 2 - Growth Care': 149,
+  'Tier 3 - Business Care': 299,
+};
+const siteTypeBasePricing = {
+  'Starter Website': 1000,
+  'Business Website': 2500,
+  'Premium Website': 5000,
+  'E-Commerce Website': 1500,
+  'Landing Page': 1200,
+  'Custom Web App': 5000,
+};
+const extraPageTypePricing = {
+  'Simple Page': 150,
+  'Service/Product Page': 225,
+  'Blog/Article Template': 300,
+  'Landing Page': 500,
+  'Portfolio/Gallery Page': 550,
+  'Custom Interactive Page': 1000,
+};
+const extraFeatureTypePricing = {
+  'Product Upload (Shopify)': 10,
+  'App Integrations': 250,
+  'Advanced Forms': 325,
+  'Custom Animations': 375,
+  'SEO Setup': 500,
+  'Booking System': 750,
+  'Branding Package': 600,
+  'Membership/Login System': 1800,
+  'Custom Dashboard': 2500,
+};
+const defaultContractTerms = [
+  '1. Project Scope: The scope of work is based on the approved proposal and signed contract.',
+  '2. Deposit: A deductible equal to 25% of the total project cost is due before work begins.',
+  '3. Timeline: Timeline estimates are based on timely client feedback and content delivery.',
+  '4. Revisions: Two revision rounds are included unless otherwise documented in writing.',
+  '5. Ownership: Final deliverables are transferred after full payment is received.',
+  '6. Support: Post-launch support is available through active monthly maintenance plans.',
+  '7. Termination: Either party may terminate with written notice; completed work remains billable.',
+].join('\n');
 
 const hasSupabaseConfig = Boolean(
   process.env.SUPABASE_URL &&
@@ -64,6 +107,299 @@ function buildInvoiceNumber() {
     .join('')
     .toUpperCase();
   return `INV-${stamp}-${shortId}`;
+}
+
+function buildContractNumber() {
+  const stamp = new Date().toISOString().slice(0, 10).replace(/-/g, '');
+  const shortId = Array.from(crypto.randomBytes(4))
+    .map((byte) => (byte % 36).toString(36))
+    .join('')
+    .toUpperCase();
+  return `CTR-${stamp}-${shortId}`;
+}
+
+function parseMoney(value, fallback = 0) {
+  if (value === null || value === undefined || value === '') {
+    return fallback;
+  }
+
+  const normalized = String(value).replace(/[$,\s]/g, '');
+  const parsed = Number(normalized);
+  return Number.isFinite(parsed) ? parsed : fallback;
+}
+
+function parseCount(value) {
+  const parsed = Number.parseInt(value, 10);
+  return Number.isFinite(parsed) && parsed > 0 ? parsed : 0;
+}
+
+function toCurrencyAmount(value) {
+  return Number(parseMoney(value, 0).toFixed(2));
+}
+
+function formatCurrency(value) {
+  return new Intl.NumberFormat('en-US', {
+    style: 'currency',
+    currency: 'USD',
+  }).format(parseMoney(value, 0));
+}
+
+function parseLineItems(input) {
+  if (!Array.isArray(input)) {
+    return [];
+  }
+
+  return input
+    .map((entry) => ({
+      name: String(entry.name || '').trim(),
+      quantity: parseCount(entry.quantity) || 1,
+      unit_price_dollars: toCurrencyAmount(entry.unitPrice || entry.unit_price_dollars || 0),
+      total_dollars: toCurrencyAmount(entry.total || entry.total_dollars || 0),
+    }))
+    .filter((entry) => entry.name && entry.total_dollars > 0);
+}
+
+function buildInvoiceDetails(body) {
+  const providedItems = parseLineItems(body.lineItems);
+  const invoiceItems = [];
+
+  if (providedItems.length) {
+    invoiceItems.push(...providedItems);
+  } else {
+    const maintenanceTier = String(body.maintenanceTier || '').trim();
+    const siteType = String(body.siteType || '').trim();
+    const extraPagesCount = parseCount(body.extraPagesCount);
+    const extraPagesType = String(body.extraPagesType || '').trim();
+    const extraFeaturesCount = parseCount(body.extraFeaturesCount);
+    const extraFeaturesType = String(body.extraFeaturesType || '').trim();
+    const additionalAmount = toCurrencyAmount(body.additionalAmountDollars || body.amountDollars || 0);
+
+    if (siteType && siteTypeBasePricing[siteType]) {
+      invoiceItems.push({
+        name: `${siteType} base build`,
+        quantity: 1,
+        unit_price_dollars: siteTypeBasePricing[siteType],
+        total_dollars: siteTypeBasePricing[siteType],
+      });
+    }
+
+    if (maintenanceTier && maintenanceTierAmounts[maintenanceTier]) {
+      invoiceItems.push({
+        name: `${maintenanceTier} (monthly)` ,
+        quantity: 1,
+        unit_price_dollars: maintenanceTierAmounts[maintenanceTier],
+        total_dollars: maintenanceTierAmounts[maintenanceTier],
+      });
+    }
+
+    if (extraPagesCount > 0 && extraPagesType && extraPageTypePricing[extraPagesType]) {
+      const unit = extraPageTypePricing[extraPagesType];
+      invoiceItems.push({
+        name: `${extraPagesType} extra pages`,
+        quantity: extraPagesCount,
+        unit_price_dollars: unit,
+        total_dollars: toCurrencyAmount(unit * extraPagesCount),
+      });
+    }
+
+    if (extraFeaturesCount > 0 && extraFeaturesType && extraFeatureTypePricing[extraFeaturesType]) {
+      const unit = extraFeatureTypePricing[extraFeaturesType];
+      invoiceItems.push({
+        name: `${extraFeaturesType} feature work`,
+        quantity: extraFeaturesCount,
+        unit_price_dollars: unit,
+        total_dollars: toCurrencyAmount(unit * extraFeaturesCount),
+      });
+    }
+
+    if (additionalAmount > 0) {
+      invoiceItems.push({
+        name: 'Additional custom work',
+        quantity: 1,
+        unit_price_dollars: additionalAmount,
+        total_dollars: additionalAmount,
+      });
+    }
+  }
+
+  const subtotal = toCurrencyAmount(invoiceItems.reduce((sum, entry) => sum + parseMoney(entry.total_dollars, 0), 0));
+  const taxDollars = toCurrencyAmount(body.taxDollars || 0);
+  const total = toCurrencyAmount(body.totalDollars || subtotal + taxDollars);
+
+  return {
+    maintenanceTier: String(body.maintenanceTier || '').trim(),
+    siteType: String(body.siteType || '').trim(),
+    extraPagesCount: parseCount(body.extraPagesCount),
+    extraPagesType: String(body.extraPagesType || '').trim(),
+    extraFeaturesCount: parseCount(body.extraFeaturesCount),
+    extraFeaturesType: String(body.extraFeaturesType || '').trim(),
+    lineItems: invoiceItems,
+    subtotalDollars: subtotal,
+    taxDollars,
+    totalDollars: total,
+  };
+}
+
+function buildPdfBuffer(draw) {
+  return new Promise((resolve, reject) => {
+    const doc = new PDFDocument({ margin: 50, size: 'A4' });
+    const chunks = [];
+
+    doc.on('data', (chunk) => chunks.push(chunk));
+    doc.on('end', () => resolve(Buffer.concat(chunks)));
+    doc.on('error', reject);
+
+    draw(doc);
+    doc.end();
+  });
+}
+
+function drawLineItemsTable(doc, lineItems) {
+  let y = doc.y;
+  doc.fontSize(11).fillColor('#1f2937').text('Line Items', 50, y);
+  y += 18;
+  doc.moveTo(50, y).lineTo(545, y).strokeColor('#cbd5e1').stroke();
+  y += 10;
+
+  doc.fontSize(10).fillColor('#111827').text('Description', 50, y);
+  doc.text('Qty', 330, y, { width: 40, align: 'right' });
+  doc.text('Unit', 390, y, { width: 70, align: 'right' });
+  doc.text('Total', 470, y, { width: 75, align: 'right' });
+  y += 15;
+  doc.moveTo(50, y).lineTo(545, y).strokeColor('#e2e8f0').stroke();
+  y += 8;
+
+  for (const entry of lineItems) {
+    if (y > 710) {
+      doc.addPage();
+      y = 50;
+    }
+
+    doc.fillColor('#0f172a').text(entry.name, 50, y, { width: 265 });
+    doc.text(String(entry.quantity || 1), 330, y, { width: 40, align: 'right' });
+    doc.text(formatCurrency(entry.unit_price_dollars), 390, y, { width: 70, align: 'right' });
+    doc.text(formatCurrency(entry.total_dollars), 470, y, { width: 75, align: 'right' });
+    y += 18;
+  }
+
+  doc.moveTo(50, y).lineTo(545, y).strokeColor('#e2e8f0').stroke();
+  doc.y = y + 14;
+}
+
+function generateInvoicePdf(invoice, clientAccount, profile) {
+  return buildPdfBuffer((doc) => {
+    const issueDate = invoice.issued_at ? new Date(invoice.issued_at).toLocaleDateString('en-US') : new Date().toLocaleDateString('en-US');
+    doc.fontSize(22).fillColor('#0f172a').text('Astronet Studios Invoice', { align: 'left' });
+    doc.moveDown(0.4);
+    doc.fontSize(10).fillColor('#334155').text(`Invoice #: ${invoice.invoice_number}`);
+    doc.text(`Issue Date: ${issueDate}`);
+    doc.text(`Due Date: ${invoice.due_date || 'N/A'}`);
+    doc.text(`Status: ${String(invoice.status || '').toUpperCase()}`);
+    doc.moveDown(0.8);
+
+    doc.fontSize(11).fillColor('#0f172a').text('Bill To');
+    doc.fontSize(10).fillColor('#334155').text(profile.company_name || profile.full_name || profile.email);
+    doc.text(profile.email || '');
+    if (clientAccount.website_url) {
+      doc.text(clientAccount.website_url);
+    }
+
+    if (invoice.description) {
+      doc.moveDown(0.8);
+      doc.fontSize(10).fillColor('#0f172a').text('Project Summary');
+      doc.fontSize(10).fillColor('#334155').text(invoice.description);
+    }
+
+    doc.moveDown(1);
+    drawLineItemsTable(doc, Array.isArray(invoice.line_items) ? invoice.line_items : []);
+
+    const subtotal = parseMoney(invoice.subtotal_dollars || invoice.amount_dollars, 0);
+    const tax = parseMoney(invoice.tax_dollars, 0);
+    const total = parseMoney(invoice.total_dollars || invoice.amount_dollars, 0);
+
+    doc.fontSize(10).fillColor('#334155').text(`Subtotal: ${formatCurrency(subtotal)}`, { align: 'right' });
+    doc.text(`Tax: ${formatCurrency(tax)}`, { align: 'right' });
+    doc.fontSize(12).fillColor('#0f172a').text(`Total Due: ${formatCurrency(total)}`, { align: 'right' });
+    doc.moveDown(1);
+    doc.fontSize(9).fillColor('#64748b').text('Thank you for choosing Astronet Studios.', { align: 'left' });
+  });
+}
+
+function generateContractPdf(contract, clientAccount, profile) {
+  return buildPdfBuffer((doc) => {
+    doc.fontSize(22).fillColor('#0f172a').text('Astronet Studios Project Contract');
+    doc.moveDown(0.4);
+    doc.fontSize(10).fillColor('#334155').text(`Contract #: ${contract.contract_number}`);
+    doc.text(`Created: ${new Date(contract.created_at || Date.now()).toLocaleDateString('en-US')}`);
+    doc.text(`Status: ${String(contract.status || '').toUpperCase()}`);
+    doc.moveDown(0.8);
+
+    doc.fontSize(11).fillColor('#0f172a').text('Client Information');
+    doc.fontSize(10).fillColor('#334155').text(profile.company_name || profile.full_name || profile.email);
+    doc.text(profile.email || '');
+    if (clientAccount.website_url) {
+      doc.text(clientAccount.website_url);
+    }
+    doc.moveDown(0.8);
+
+    doc.fontSize(11).fillColor('#0f172a').text('Project Details');
+    doc.fontSize(10).fillColor('#334155').text(`Project: ${contract.project_title}`);
+    doc.text(`Site Type: ${contract.site_type || 'Not specified'}`);
+    doc.text(`Timeline: ${contract.timeline || 'Not specified'}`);
+    doc.text(`Total Cost: ${formatCurrency(contract.total_cost_dollars)}`);
+    doc.text(`Due Before Project Start (${contract.deductible_percent}%): ${formatCurrency(contract.deductible_due_dollars)}`);
+    doc.text(`Remaining Balance: ${formatCurrency(contract.remaining_balance_dollars)}`);
+    doc.moveDown(1);
+
+    doc.fontSize(11).fillColor('#0f172a').text('Terms & Conditions');
+    doc.moveDown(0.5);
+    doc.fontSize(9.5).fillColor('#334155').text(contract.terms_text || defaultContractTerms, {
+      width: 500,
+      align: 'left',
+      lineGap: 3,
+    });
+
+    doc.moveDown(1.4);
+    doc.fontSize(10).fillColor('#0f172a').text('Client Signature: ____________________________');
+    doc.text('Date: ____________________________');
+  });
+}
+
+async function sendEmailWithAttachment({ to, subject, text, html, attachmentName, attachmentBuffer }) {
+  const hasEmailConfig = Boolean(process.env.SMTP_HOST && process.env.SMTP_PORT && process.env.SMTP_FROM);
+  if (!hasEmailConfig) {
+    return 'Email not sent because SMTP_HOST, SMTP_PORT, and SMTP_FROM are not configured.';
+  }
+
+  const transporter = nodemailer.createTransport({
+    host: process.env.SMTP_HOST,
+    port: Number(process.env.SMTP_PORT),
+    secure: String(process.env.SMTP_SECURE || 'false').toLowerCase() === 'true',
+    auth: process.env.SMTP_USER
+      ? {
+          user: process.env.SMTP_USER,
+          pass: process.env.SMTP_PASS || '',
+        }
+      : undefined,
+  });
+
+  await transporter.sendMail({
+    from: process.env.SMTP_FROM,
+    to,
+    subject,
+    text,
+    html,
+    attachments: attachmentBuffer
+      ? [
+          {
+            filename: attachmentName,
+            content: attachmentBuffer,
+          },
+        ]
+      : [],
+  });
+
+  return null;
 }
 
 function parseInvoiceAmountDollars(body) {
@@ -251,13 +587,119 @@ async function fetchClientInvoices(clientId) {
   return data || [];
 }
 
+async function fetchClientContracts(clientId) {
+  const { data, error } = await supabaseAdmin
+    .from('contracts')
+    .select('*')
+    .eq('client_id', clientId)
+    .order('created_at', { ascending: false });
+
+  if (error) {
+    throw error;
+  }
+
+  return data || [];
+}
+
+async function resolveInvoiceByIdForUser(invoiceId, user) {
+  if (user.profile.role === 'admin') {
+    const { data: invoice, error } = await supabaseAdmin
+      .from('invoices')
+      .select('*')
+      .eq('id', invoiceId)
+      .single();
+
+    if (error) {
+      throw error;
+    }
+
+    return invoice;
+  }
+
+  const account = await getClientAccountByProfileId(user.id);
+  const { data: invoice, error } = await supabaseAdmin
+    .from('invoices')
+    .select('*')
+    .eq('id', invoiceId)
+    .eq('client_id', account.id)
+    .single();
+
+  if (error) {
+    throw error;
+  }
+
+  return invoice;
+}
+
+async function resolveContractByIdForUser(contractId, user) {
+  if (user.profile.role === 'admin') {
+    const { data: contract, error } = await supabaseAdmin
+      .from('contracts')
+      .select('*')
+      .eq('id', contractId)
+      .single();
+
+    if (error) {
+      throw error;
+    }
+
+    return contract;
+  }
+
+  const account = await getClientAccountByProfileId(user.id);
+  const { data: contract, error } = await supabaseAdmin
+    .from('contracts')
+    .select('*')
+    .eq('id', contractId)
+    .eq('client_id', account.id)
+    .single();
+
+  if (error) {
+    throw error;
+  }
+
+  return contract;
+}
+
+async function sendInvoiceEmail(invoice, clientAccount, profile) {
+  const pdfBuffer = await generateInvoicePdf(invoice, clientAccount, profile);
+  const paymentLinkText = invoice.square_payment_link_url
+    ? `\nPay invoice: ${invoice.square_payment_link_url}`
+    : '\nSquare payment link will appear as soon as the integration is fully active.';
+  const paymentLinkHtml = invoice.square_payment_link_url
+    ? `<p><a href="${invoice.square_payment_link_url}">Pay this invoice securely</a></p>`
+    : '<p>Square payment link will appear as soon as the integration is fully active.</p>';
+
+  return sendEmailWithAttachment({
+    to: profile.email,
+    subject: `Invoice ${invoice.invoice_number} from Astronet Studios`,
+    text: `Hello ${profile.full_name || profile.company_name || 'Client'},\n\nYour invoice is attached as a PDF.${paymentLinkText}\n\nThank you,\nAstronet Studios`,
+    html: `<p>Hello ${profile.full_name || profile.company_name || 'Client'},</p><p>Your invoice is attached as a PDF.</p>${paymentLinkHtml}<p>Thank you,<br/>Astronet Studios</p>`,
+    attachmentName: `${invoice.invoice_number}.pdf`,
+    attachmentBuffer: pdfBuffer,
+  });
+}
+
+async function sendContractEmail(contract, clientAccount, profile) {
+  const pdfBuffer = await generateContractPdf(contract, clientAccount, profile);
+  return sendEmailWithAttachment({
+    to: profile.email,
+    subject: `Contract ${contract.contract_number} from Astronet Studios`,
+    text: `Hello ${profile.full_name || profile.company_name || 'Client'},\n\nYour project contract is attached as a PDF. Please review and sign.\n\nThank you,\nAstronet Studios`,
+    html: `<p>Hello ${profile.full_name || profile.company_name || 'Client'},</p><p>Your project contract is attached as a PDF.</p><p>Please review and sign, then reply with confirmation.</p><p>Thank you,<br/>Astronet Studios</p>`,
+    attachmentName: `${contract.contract_number}.pdf`,
+    attachmentBuffer: pdfBuffer,
+  });
+}
+
 async function enrichClients(clientAccounts) {
   const profileIds = clientAccounts.map((entry) => entry.profile_id);
   const clientIds = clientAccounts.map((entry) => entry.id);
 
-  const [{ data: profiles, error: profilesError }, { data: invoices, error: invoicesError }] = await Promise.all([
+  const [{ data: profiles, error: profilesError }, { data: invoices, error: invoicesError }, { data: contracts, error: contractsError }] = await Promise.all([
     supabaseAdmin.from('profiles').select('*').in('id', profileIds),
     supabaseAdmin.from('invoices').select('*').in('client_id', clientIds),
+    supabaseAdmin.from('contracts').select('*').in('client_id', clientIds),
   ]);
 
   if (profilesError) {
@@ -268,8 +710,13 @@ async function enrichClients(clientAccounts) {
     throw invoicesError;
   }
 
+  if (contractsError) {
+    throw contractsError;
+  }
+
   const profilesById = new Map((profiles || []).map((entry) => [entry.id, entry]));
   const invoicesByClientId = new Map();
+  const contractsByClientId = new Map();
 
   for (const invoice of invoices || []) {
     const list = invoicesByClientId.get(invoice.client_id) || [];
@@ -277,9 +724,16 @@ async function enrichClients(clientAccounts) {
     invoicesByClientId.set(invoice.client_id, list);
   }
 
+  for (const contract of contracts || []) {
+    const list = contractsByClientId.get(contract.client_id) || [];
+    list.push(contract);
+    contractsByClientId.set(contract.client_id, list);
+  }
+
   return clientAccounts.map((account) => {
     const profile = profilesById.get(account.profile_id) || {};
     const clientInvoices = invoicesByClientId.get(account.id) || [];
+    const clientContracts = contractsByClientId.get(account.id) || [];
     const unpaidTotal = clientInvoices
       .filter((invoice) => invoice.status !== 'paid')
       .reduce((sum, invoice) => sum + Number(invoice.amount_dollars || 0), 0);
@@ -288,6 +742,7 @@ async function enrichClients(clientAccounts) {
       ...account,
       profile,
       invoice_count: clientInvoices.length,
+      contract_count: clientContracts.length,
       unpaid_total_dollars: unpaidTotal,
     };
   });
@@ -333,8 +788,9 @@ app.get('/api/me/dashboard', authMiddleware, async (req, res) => {
       return;
     }
 
-    const [invoices, changeRequests, supportQuestions, subscriptionRequests] = await Promise.all([
+    const [invoices, contracts, changeRequests, supportQuestions, subscriptionRequests] = await Promise.all([
       fetchClientInvoices(account.id),
+      fetchClientContracts(account.id),
       supabaseAdmin.from('change_requests').select('*').eq('client_id', account.id).order('created_at', { ascending: false }),
       supabaseAdmin.from('support_questions').select('*').eq('client_id', account.id).order('created_at', { ascending: false }),
       supabaseAdmin.from('subscription_change_requests').select('*').eq('client_id', account.id).order('created_at', { ascending: false }),
@@ -356,6 +812,7 @@ app.get('/api/me/dashboard', authMiddleware, async (req, res) => {
       profile: req.user.profile,
       clientAccount: account,
       invoices,
+      contracts,
       previousInvoices: invoices.filter((invoice) => invoice.status === 'paid'),
       openInvoices: invoices.filter((invoice) => invoice.status !== 'paid'),
       changeRequests: changeRequests.data || [],
@@ -546,13 +1003,23 @@ app.get('/api/admin/overview', authMiddleware, requireAdmin, async (_req, res) =
       .select('*')
       .order('issued_at', { ascending: false });
 
+    const { data: contracts, error: contractsError } = await supabaseAdmin
+      .from('contracts')
+      .select('*')
+      .order('created_at', { ascending: false });
+
     if (invoicesError) {
       throw invoicesError;
+    }
+
+    if (contractsError) {
+      throw contractsError;
     }
 
     res.json({
       clients,
       invoices: invoices || [],
+      contracts: contracts || [],
       changeRequests: changeRequests.data || [],
       supportQuestions: supportQuestions.data || [],
       subscriptionRequests: subscriptionRequests.data || [],
@@ -756,11 +1223,21 @@ app.post('/api/admin/invoices', authMiddleware, requireAdmin, async (req, res) =
     }
 
     const profile = await getProfileByUserId(account.profile_id);
+    const invoiceDetails = buildInvoiceDetails(req.body);
     const invoicePayload = {
       client_id: req.body.clientId,
       invoice_number: buildInvoiceNumber(),
       description: req.body.description,
-      amount_dollars: parseInvoiceAmountDollars(req.body),
+      site_type: invoiceDetails.siteType || null,
+      extra_pages_count: invoiceDetails.extraPagesCount,
+      extra_pages_type: invoiceDetails.extraPagesType || null,
+      extra_features_count: invoiceDetails.extraFeaturesCount,
+      extra_features_type: invoiceDetails.extraFeaturesType || null,
+      line_items: invoiceDetails.lineItems,
+      subtotal_dollars: invoiceDetails.subtotalDollars,
+      tax_dollars: invoiceDetails.taxDollars,
+      total_dollars: invoiceDetails.totalDollars,
+      amount_dollars: invoiceDetails.totalDollars,
       currency: req.body.currency || 'USD',
       due_date: req.body.dueDate,
       status: req.body.status || 'unpaid',
@@ -797,9 +1274,23 @@ app.post('/api/admin/invoices', authMiddleware, requireAdmin, async (req, res) =
       responseInvoice = updatedInvoice;
     }
 
+    const warnings = [];
+    if (paymentLink.warning) {
+      warnings.push(paymentLink.warning);
+    }
+
+    try {
+      const emailWarning = await sendInvoiceEmail(responseInvoice, account, profile);
+      if (emailWarning) {
+        warnings.push(emailWarning);
+      }
+    } catch (emailError) {
+      warnings.push(`Invoice email failed: ${normalizeError(emailError, 'Unknown email error.')}`);
+    }
+
     res.status(201).json({
       invoice: responseInvoice,
-      warning: paymentLink.warning,
+      warning: warnings.length ? warnings.join(' ') : null,
     });
   } catch (error) {
     res.status(500).json({ error: normalizeError(error, 'Unable to create invoice.') });
@@ -831,6 +1322,132 @@ app.put('/api/admin/invoices/:invoiceId', authMiddleware, requireAdmin, async (r
     res.json(data);
   } catch (error) {
     res.status(500).json({ error: normalizeError(error, 'Unable to update invoice.') });
+  }
+});
+
+app.get('/api/admin/contracts', authMiddleware, requireAdmin, async (_req, res) => {
+  try {
+    const { data, error } = await supabaseAdmin
+      .from('contracts')
+      .select('*')
+      .order('created_at', { ascending: false });
+
+    if (error) {
+      throw error;
+    }
+
+    res.json(data || []);
+  } catch (error) {
+    res.status(500).json({ error: normalizeError(error, 'Unable to load contracts.') });
+  }
+});
+
+app.post('/api/admin/contracts', authMiddleware, requireAdmin, async (req, res) => {
+  try {
+    const { data: account, error: accountError } = await supabaseAdmin
+      .from('client_accounts')
+      .select('*')
+      .eq('id', req.body.clientId)
+      .single();
+
+    if (accountError) {
+      throw accountError;
+    }
+
+    const profile = await getProfileByUserId(account.profile_id);
+    const totalCost = toCurrencyAmount(req.body.totalCostDollars);
+    const deductiblePercent = toCurrencyAmount(req.body.deductiblePercent || 25);
+    const deductibleDue = toCurrencyAmount((totalCost * deductiblePercent) / 100);
+    const remainingBalance = toCurrencyAmount(totalCost - deductibleDue);
+
+    const contractPayload = {
+      client_id: req.body.clientId,
+      contract_number: buildContractNumber(),
+      project_title: req.body.projectTitle,
+      site_type: req.body.siteType || null,
+      timeline: req.body.timeline || null,
+      total_cost_dollars: totalCost,
+      deductible_percent: deductiblePercent,
+      deductible_due_dollars: deductibleDue,
+      remaining_balance_dollars: remainingBalance,
+      terms_text: req.body.termsText || defaultContractTerms,
+      status: req.body.status || 'sent',
+    };
+
+    const { data: contract, error: contractError } = await supabaseAdmin
+      .from('contracts')
+      .insert(contractPayload)
+      .select('*')
+      .single();
+
+    if (contractError) {
+      throw contractError;
+    }
+
+    const warnings = [];
+    try {
+      const emailWarning = await sendContractEmail(contract, account, profile);
+      if (emailWarning) {
+        warnings.push(emailWarning);
+      }
+    } catch (emailError) {
+      warnings.push(`Contract email failed: ${normalizeError(emailError, 'Unknown email error.')}`);
+    }
+
+    res.status(201).json({
+      contract,
+      warning: warnings.length ? warnings.join(' ') : null,
+    });
+  } catch (error) {
+    res.status(500).json({ error: normalizeError(error, 'Unable to create contract.') });
+  }
+});
+
+app.get('/api/invoices/:invoiceId/pdf', authMiddleware, async (req, res) => {
+  try {
+    const invoice = await resolveInvoiceByIdForUser(req.params.invoiceId, req.user);
+    const { data: account, error: accountError } = await supabaseAdmin
+      .from('client_accounts')
+      .select('*')
+      .eq('id', invoice.client_id)
+      .single();
+
+    if (accountError) {
+      throw accountError;
+    }
+
+    const profile = await getProfileByUserId(account.profile_id);
+    const pdfBuffer = await generateInvoicePdf(invoice, account, profile);
+
+    res.setHeader('Content-Type', 'application/pdf');
+    res.setHeader('Content-Disposition', `inline; filename="${invoice.invoice_number}.pdf"`);
+    res.send(pdfBuffer);
+  } catch (error) {
+    res.status(500).json({ error: normalizeError(error, 'Unable to render invoice PDF.') });
+  }
+});
+
+app.get('/api/contracts/:contractId/pdf', authMiddleware, async (req, res) => {
+  try {
+    const contract = await resolveContractByIdForUser(req.params.contractId, req.user);
+    const { data: account, error: accountError } = await supabaseAdmin
+      .from('client_accounts')
+      .select('*')
+      .eq('id', contract.client_id)
+      .single();
+
+    if (accountError) {
+      throw accountError;
+    }
+
+    const profile = await getProfileByUserId(account.profile_id);
+    const pdfBuffer = await generateContractPdf(contract, account, profile);
+
+    res.setHeader('Content-Type', 'application/pdf');
+    res.setHeader('Content-Disposition', `inline; filename="${contract.contract_number}.pdf"`);
+    res.send(pdfBuffer);
+  } catch (error) {
+    res.status(500).json({ error: normalizeError(error, 'Unable to render contract PDF.') });
   }
 });
 

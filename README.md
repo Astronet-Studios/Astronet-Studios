@@ -5,9 +5,10 @@ Company website plus a client portal and admin dashboard backed by Supabase, Squ
 ## What Was Added
 
 - Client portal login with role-based redirect.
-- Client dashboard with website status, subscription plan, invoices, Square payment links, change requests, and support requests.
-- Admin dashboard with client CRUD, invoice creation, invoice payment-status tracking, and request visibility.
+- Client dashboard with website status, subscription plan, invoices, invoice PDF viewing, Square payment links, change requests, and support requests.
+- Admin dashboard with client CRUD, detailed invoice creation, contract creation, invoice/contract PDF viewing, invoice payment-status tracking, and request visibility.
 - Node.js Express API layer for Supabase-backed data and Square payment-link generation.
+- Automatic invoice and contract PDF generation plus optional SMTP email delivery.
 
 ## Local Setup
 
@@ -30,6 +31,7 @@ This repo now runs as a Node web service through [render.yaml](render.yaml).
 ## Notes
 
 - Square payment links are generated when an invoice is created or when a client clicks Pay Invoice, as long as Square credentials are configured.
+- SMTP email delivery is optional. Set `SMTP_HOST`, `SMTP_PORT`, and `SMTP_FROM` to send invoice and contract PDFs automatically, and optionally set `SMTP_USER`, `SMTP_PASS`, and `SMTP_SECURE`.
 - The frontend uses Supabase Auth in the browser and talks to the Express API with the signed-in user's access token.
 - The portal is implemented in the existing `Client` folder so the marketing site and dashboards share the same visual system.
 - Backend code and backend-only assets live under the `server` folder.

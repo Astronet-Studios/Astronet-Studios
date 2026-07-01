@@ -2,16 +2,48 @@ let supabaseClient;
 let authSession;
 let currentMode = 'client';
 let adminClientState = [];
+
 const maintenanceTierLabels = {
   'Tier 1 - Basic Care': 'Tier 1 - Basic Care ($49/month)',
   'Tier 2 - Growth Care': 'Tier 2 - Growth Care ($149/month)',
   'Tier 3 - Business Care': 'Tier 3 - Business Care ($299/month)',
   'Tier 4 - Full Management': 'Tier 4 - Full Management ($499-$1,200/month)',
 };
+
 const maintenanceTierAmounts = {
   'Tier 1 - Basic Care': 49,
   'Tier 2 - Growth Care': 149,
   'Tier 3 - Business Care': 299,
+};
+
+const siteTypeBasePricing = {
+  'Starter Website': 1000,
+  'Business Website': 2500,
+  'Premium Website': 5000,
+  'E-Commerce Website': 1500,
+  'Landing Page': 1200,
+  'Custom Web App': 5000,
+};
+
+const extraPageTypePricing = {
+  'Simple Page': 150,
+  'Service/Product Page': 225,
+  'Blog/Article Template': 300,
+  'Landing Page': 500,
+  'Portfolio/Gallery Page': 550,
+  'Custom Interactive Page': 1000,
+};
+
+const extraFeatureTypePricing = {
+  'Product Upload (Shopify)': 10,
+  'App Integrations': 250,
+  'Advanced Forms': 325,
+  'Custom Animations': 375,
+  'SEO Setup': 500,
+  'Booking System': 750,
+  'Branding Package': 600,
+  'Membership/Login System': 1800,
+  'Custom Dashboard': 2500,
 };
 
 document.addEventListener('DOMContentLoaded', async () => {
@@ -89,7 +121,7 @@ async function readJsonResponse(response, fallbackMessage) {
   }
 }
 
-async function apiFetch(path, options = {}) {
+async function fetchWithAuth(path, options = {}) {
   const sendRequest = async () => {
     const { data } = await supabaseClient.auth.getSession();
     authSession = data.session;
@@ -97,7 +129,6 @@ async function apiFetch(path, options = {}) {
     return fetch(path, {
       ...options,
       headers: {
-        'Content-Type': 'application/json',
         Authorization: `Bearer ${authSession?.access_token || ''}`,
         ...(options.headers || {}),
       },
@@ -115,6 +146,18 @@ async function apiFetch(path, options = {}) {
     }
   }
 
+  return response;
+}
+
+async function apiFetch(path, options = {}) {
+  const response = await fetchWithAuth(path, {
+    ...options,
+    headers: {
+      'Content-Type': 'application/json',
+      ...(options.headers || {}),
+    },
+  });
+
   if (response.status === 204) {
     return null;
   }
@@ -125,6 +168,20 @@ async function apiFetch(path, options = {}) {
   }
 
   return payload;
+}
+
+async function openProtectedPdf(path) {
+  const response = await fetchWithAuth(path);
+
+  if (!response.ok) {
+    const payload = await readJsonResponse(response, 'Unable to load PDF.');
+    throw new Error(payload.error || 'Unable to load PDF.');
+  }
+
+  const blob = await response.blob();
+  const fileUrl = URL.createObjectURL(blob);
+  window.open(fileUrl, '_blank', 'noopener');
+  setTimeout(() => URL.revokeObjectURL(fileUrl), 45000);
 }
 
 async function redirectForRole(preferredMode) {
@@ -196,8 +253,8 @@ function renderClientDashboard(data) {
   const unpaidTotal = data.openInvoices.reduce((sum, invoice) => sum + Number(invoice.amount_dollars || 0), 0);
   document.getElementById('invoice-balance').textContent = formatCurrency(unpaidTotal);
   document.getElementById('invoice-balance-caption').textContent = data.openInvoices.length
-    ? `${data.openInvoices.length} unpaid invoice${data.openInvoices.length === 1 ? '' : 's'}`
-    : 'No unpaid invoices.';
+    ? `${data.openInvoices.length} unpaid invoice${data.openInvoices.length === 1 ? '' : 's'} | ${data.contracts?.length || 0} contract${(data.contracts?.length || 0) === 1 ? '' : 's'} on file`
+    : `No unpaid invoices | ${data.contracts?.length || 0} contract${(data.contracts?.length || 0) === 1 ? '' : 's'} on file`;
 
   const invoiceShell = document.getElementById('client-invoices');
   if (!data.invoices.length) {
@@ -227,7 +284,10 @@ function renderClientDashboard(data) {
             <td>${formatCurrency(invoice.amount_dollars)}</td>
             <td>${invoice.due_date || 'N/A'}</td>
             <td>
-              ${invoice.square_payment_link_url ? `<a class="btn btn-secondary btn-small" href="${invoice.square_payment_link_url}" target="_blank" rel="noopener noreferrer">Pay Invoice</a>` : invoice.status !== 'paid' ? `<button type="button" class="btn btn-secondary btn-small pay-link-button" data-invoice-id="${invoice.id}">Pay Invoice</button>` : '<span class="muted-copy">Paid</span>'}
+              <div class="table-button-row">
+                <button type="button" class="btn btn-secondary btn-small view-invoice-pdf-button" data-invoice-id="${invoice.id}">View Full Invoice</button>
+                ${invoice.square_payment_link_url ? `<a class="btn btn-secondary btn-small" href="${invoice.square_payment_link_url}" target="_blank" rel="noopener noreferrer">Pay Invoice</a>` : invoice.status !== 'paid' ? `<button type="button" class="btn btn-secondary btn-small pay-link-button" data-invoice-id="${invoice.id}">Pay Invoice</button>` : '<span class="muted-copy">Paid</span>'}
+              </div>
             </td>
           </tr>
         `).join('')}
@@ -252,6 +312,16 @@ function renderClientDashboard(data) {
       } finally {
         button.disabled = false;
         button.textContent = 'Pay Invoice';
+      }
+    });
+  });
+
+  invoiceShell.querySelectorAll('.view-invoice-pdf-button').forEach((button) => {
+    button.addEventListener('click', async () => {
+      try {
+        await openProtectedPdf(`/api/invoices/${button.dataset.invoiceId}/pdf`);
+      } catch (error) {
+        alert(error.message);
       }
     });
   });
@@ -316,6 +386,8 @@ async function loadAdminOverview() {
   adminClientState = data.clients;
   renderAdminClients(data.clients);
   renderAdminInvoices(data.invoices, data.clients);
+  renderAdminContracts(data.contracts || [], data.clients);
+
   renderRequestList('admin-change-requests', data.changeRequests, (item) => `
     <h3>${item.title}</h3>
     <p>${item.description}</p>
@@ -333,8 +405,11 @@ async function loadAdminOverview() {
     <span class="status-pill status-${item.status}">${capitalize(item.status)}</span>
   `);
 
-  const select = document.getElementById('invoice-client-select');
-  select.innerHTML = adminClientState.map((client) => `<option value="${client.id}">${client.profile.company_name || client.profile.email}</option>`).join('');
+  const invoiceSelect = document.getElementById('invoice-client-select');
+  const contractSelect = document.getElementById('contract-client-select');
+  const options = adminClientState.map((client) => `<option value="${client.id}">${client.profile.company_name || client.profile.email}</option>`).join('');
+  invoiceSelect.innerHTML = options;
+  contractSelect.innerHTML = options;
 }
 
 function renderAdminClients(clients) {
@@ -352,7 +427,7 @@ function renderAdminClients(clients) {
           <th>Client</th>
           <th>Website</th>
           <th>Plan</th>
-          <th>Invoices</th>
+          <th>Documents</th>
           <th>Actions</th>
         </tr>
       </thead>
@@ -368,7 +443,7 @@ function renderAdminClients(clients) {
               <div class="table-subcopy">${client.website_url || 'No URL added'}</div>
             </td>
             <td>${formatMaintenanceTier(client.subscription_plan)}</td>
-            <td>${client.invoice_count} total / ${formatCurrency(client.unpaid_total_dollars)} unpaid</td>
+            <td>${client.invoice_count} invoice${client.invoice_count === 1 ? '' : 's'} | ${client.contract_count || 0} contract${(client.contract_count || 0) === 1 ? '' : 's'}</td>
             <td>
               <div class="table-button-row">
                 <button type="button" class="btn btn-secondary btn-small edit-client-button" data-client-id="${client.id}">Edit</button>
@@ -419,7 +494,7 @@ function renderAdminInvoices(invoices, clients) {
           <th>Status</th>
           <th>Amount</th>
           <th>Due</th>
-          <th>Action</th>
+          <th>Actions</th>
         </tr>
       </thead>
       <tbody>
@@ -436,7 +511,10 @@ function renderAdminInvoices(invoices, clients) {
               <td>${formatCurrency(invoice.amount_dollars)}</td>
               <td>${invoice.due_date || 'N/A'}</td>
               <td>
-                ${invoice.status !== 'paid' ? `<button type="button" class="btn btn-secondary btn-small mark-paid-button" data-invoice-id="${invoice.id}">Mark Paid</button>` : '<span class="muted-copy">Settled</span>'}
+                <div class="table-button-row">
+                  <button type="button" class="btn btn-secondary btn-small admin-view-invoice-button" data-invoice-id="${invoice.id}">View Full Invoice</button>
+                  ${invoice.status !== 'paid' ? `<button type="button" class="btn btn-secondary btn-small mark-paid-button" data-invoice-id="${invoice.id}">Mark Paid</button>` : '<span class="muted-copy">Settled</span>'}
+                </div>
               </td>
             </tr>
           `;
@@ -465,6 +543,75 @@ function renderAdminInvoices(invoices, clients) {
       }
     });
   });
+
+  shell.querySelectorAll('.admin-view-invoice-button').forEach((button) => {
+    button.addEventListener('click', async () => {
+      try {
+        await openProtectedPdf(`/api/invoices/${button.dataset.invoiceId}/pdf`);
+      } catch (error) {
+        alert(error.message);
+      }
+    });
+  });
+}
+
+function renderAdminContracts(contracts, clients) {
+  const clientsById = new Map(clients.map((client) => [client.id, client]));
+  const shell = document.getElementById('admin-contracts');
+
+  if (!shell) {
+    return;
+  }
+
+  if (!contracts.length) {
+    shell.innerHTML = '<p class="muted-copy">No contracts yet.</p>';
+    return;
+  }
+
+  shell.innerHTML = `
+    <table class="portal-table">
+      <thead>
+        <tr>
+          <th>Contract</th>
+          <th>Client</th>
+          <th>Status</th>
+          <th>Total</th>
+          <th>Deductible Due</th>
+          <th>Actions</th>
+        </tr>
+      </thead>
+      <tbody>
+        ${contracts.map((contract) => {
+          const client = clientsById.get(contract.client_id);
+          return `
+            <tr>
+              <td>
+                <strong>${contract.contract_number}</strong>
+                <div class="table-subcopy">${contract.project_title}</div>
+              </td>
+              <td>${client?.profile.company_name || 'Unknown client'}</td>
+              <td><span class="status-pill status-${contract.status}">${capitalize(contract.status)}</span></td>
+              <td>${formatCurrency(contract.total_cost_dollars)}</td>
+              <td>${formatCurrency(contract.deductible_due_dollars)}</td>
+              <td>
+                <button type="button" class="btn btn-secondary btn-small view-contract-pdf-button" data-contract-id="${contract.id}">View Contract</button>
+              </td>
+            </tr>
+          `;
+        }).join('')}
+      </tbody>
+    </table>
+  `;
+
+  shell.querySelectorAll('.view-contract-pdf-button').forEach((button) => {
+    button.addEventListener('click', async () => {
+      try {
+        await openProtectedPdf(`/api/contracts/${button.dataset.contractId}/pdf`);
+      } catch (error) {
+        alert(error.message);
+      }
+    });
+  });
 }
 
 function renderRequestList(containerId, items, template) {
@@ -477,18 +624,152 @@ function renderRequestList(containerId, items, template) {
   shell.innerHTML = items.map((item) => `<article class="request-card">${template(item)}</article>`).join('');
 }
 
+function buildInvoiceLineItems(payload) {
+  const lineItems = [];
+
+  const siteBase = siteTypeBasePricing[payload.siteType] || 0;
+  if (siteBase > 0) {
+    lineItems.push({
+      name: `${payload.siteType} base build`,
+      quantity: 1,
+      unitPrice: siteBase,
+      total: siteBase,
+    });
+  }
+
+  const maintenanceAmount = maintenanceTierAmounts[payload.maintenanceTier] || 0;
+  if (maintenanceAmount > 0) {
+    lineItems.push({
+      name: `${payload.maintenanceTier} (monthly)`,
+      quantity: 1,
+      unitPrice: maintenanceAmount,
+      total: maintenanceAmount,
+    });
+  }
+
+  const extraPagesCount = Number(payload.extraPagesCount || 0);
+  const pageUnit = extraPageTypePricing[payload.extraPagesType] || 0;
+  if (extraPagesCount > 0 && pageUnit > 0) {
+    lineItems.push({
+      name: `${payload.extraPagesType} extra pages`,
+      quantity: extraPagesCount,
+      unitPrice: pageUnit,
+      total: extraPagesCount * pageUnit,
+    });
+  }
+
+  const extraFeaturesCount = Number(payload.extraFeaturesCount || 0);
+  const featureUnit = extraFeatureTypePricing[payload.extraFeaturesType] || 0;
+  if (extraFeaturesCount > 0 && featureUnit > 0) {
+    lineItems.push({
+      name: `${payload.extraFeaturesType} feature work`,
+      quantity: extraFeaturesCount,
+      unitPrice: featureUnit,
+      total: extraFeaturesCount * featureUnit,
+    });
+  }
+
+  const additionalAmount = Number(payload.additionalAmountDollars || 0);
+  if (additionalAmount > 0) {
+    lineItems.push({
+      name: 'Additional custom work',
+      quantity: 1,
+      unitPrice: additionalAmount,
+      total: additionalAmount,
+    });
+  }
+
+  return lineItems;
+}
+
+function calculateInvoiceTotals(payload) {
+  const lineItems = buildInvoiceLineItems(payload);
+  const subtotal = lineItems.reduce((sum, item) => sum + Number(item.total || 0), 0);
+  const tax = Number(payload.taxDollars || 0);
+  const total = subtotal + tax;
+
+  return {
+    lineItems,
+    subtotal,
+    tax,
+    total,
+  };
+}
+
+function renderInvoicePricingPreview(totals) {
+  const preview = document.getElementById('invoice-pricing-preview');
+  if (!preview) {
+    return;
+  }
+
+  const rows = totals.lineItems.length
+    ? totals.lineItems.map((item) => `
+        <div class="invoice-pricing-row">
+          <span>${item.name} x ${item.quantity}</span>
+          <strong>${formatCurrency(item.total)}</strong>
+        </div>
+      `).join('')
+    : '<p class="muted-copy">Select a maintenance tier and options to build the invoice price.</p>';
+
+  preview.innerHTML = `
+    <p class="invoice-pricing-title">Live Price Breakdown</p>
+    ${rows}
+    <div class="invoice-pricing-row total-row">
+      <span>Subtotal</span>
+      <strong>${formatCurrency(totals.subtotal)}</strong>
+    </div>
+    <div class="invoice-pricing-row total-row">
+      <span>Tax</span>
+      <strong>${formatCurrency(totals.tax)}</strong>
+    </div>
+    <div class="invoice-pricing-row grand-total-row">
+      <span>Total</span>
+      <strong>${formatCurrency(totals.total)}</strong>
+    </div>
+  `;
+}
+
 function bindAdminForms() {
   const clientForm = document.getElementById('client-form');
   const invoiceForm = document.getElementById('invoice-form');
+  const contractForm = document.getElementById('contract-form');
   const resetButton = document.getElementById('client-form-reset');
-  const invoiceTierField = invoiceForm.elements.maintenanceTier;
-  const invoiceDescriptionField = invoiceForm.elements.invoiceDescription;
-  const invoiceAmountField = invoiceForm.elements.amountDollars;
 
-  invoiceTierField.addEventListener('change', () => {
-    const selectedTier = invoiceTierField.value;
-    invoiceAmountField.placeholder = selectedTier === 'Tier 4 - Full Management' ? '0.00 plus custom Tier 4 total' : '0.00';
+  const recalcInvoiceTotal = () => {
+    const payload = Object.fromEntries(new FormData(invoiceForm).entries());
+    const totals = calculateInvoiceTotals(payload);
+    invoiceForm.elements.computedTotal.value = formatCurrency(totals.total);
+    renderInvoicePricingPreview(totals);
+  };
+
+  const recalcContractDeductible = () => {
+    const totalCost = Number(contractForm.elements.totalCostDollars.value || 0);
+    const deductiblePercent = Number(contractForm.elements.deductiblePercent.value || 25);
+    const deductible = totalCost * (deductiblePercent / 100);
+    contractForm.elements.deductibleDuePreview.value = formatCurrency(deductible);
+  };
+
+  [
+    'siteType',
+    'maintenanceTier',
+    'extraPagesCount',
+    'extraPagesType',
+    'extraFeaturesCount',
+    'extraFeaturesType',
+    'additionalAmountDollars',
+    'taxDollars',
+  ].forEach((field) => {
+    invoiceForm.elements[field].addEventListener('input', recalcInvoiceTotal);
+    invoiceForm.elements[field].addEventListener('change', recalcInvoiceTotal);
   });
+
+  ['totalCostDollars', 'deductiblePercent'].forEach((field) => {
+    contractForm.elements[field].addEventListener('input', recalcContractDeductible);
+    contractForm.elements[field].addEventListener('change', recalcContractDeductible);
+  });
+
+  recalcInvoiceTotal();
+  recalcContractDeductible();
 
   clientForm.addEventListener('submit', async (event) => {
     event.preventDefault();
@@ -525,15 +806,16 @@ function bindAdminForms() {
     const messageNode = document.getElementById('invoice-form-message');
     setMessage(messageNode, 'Creating invoice...');
 
-    const formData = new FormData(invoiceForm);
-    const payload = Object.fromEntries(formData.entries());
-    const maintenanceTier = payload.maintenanceTier;
-    const additionalAmount = Number(payload.amountDollars || 0);
-    const baseAmount = maintenanceTierAmounts[maintenanceTier] || 0;
+    const payload = Object.fromEntries(new FormData(invoiceForm).entries());
+    const totals = calculateInvoiceTotals(payload);
 
-    payload.description = buildInvoiceDescription(maintenanceTier, payload.invoiceDescription);
-    payload.amountDollars = (baseAmount + additionalAmount).toFixed(2);
-    delete payload.maintenanceTier;
+    payload.description = buildInvoiceDescription(payload);
+    payload.lineItems = totals.lineItems;
+    payload.subtotalDollars = totals.subtotal.toFixed(2);
+    payload.totalDollars = totals.total.toFixed(2);
+    payload.taxDollars = Number(payload.taxDollars || 0).toFixed(2);
+
+    delete payload.computedTotal;
     delete payload.invoiceDescription;
 
     try {
@@ -542,9 +824,37 @@ function bindAdminForms() {
         body: JSON.stringify(payload),
       });
       invoiceForm.reset();
-      invoiceAmountField.value = '0.00';
-      invoiceAmountField.placeholder = '0.00';
-      setMessage(messageNode, result.warning ? `Invoice created. ${result.warning}` : 'Invoice created and added to the client dashboard.');
+      invoiceForm.elements.additionalAmountDollars.value = '0.00';
+      invoiceForm.elements.taxDollars.value = '0.00';
+      invoiceForm.elements.extraPagesCount.value = '0';
+      invoiceForm.elements.extraFeaturesCount.value = '0';
+      invoiceForm.elements.computedTotal.value = '$0.00';
+      setMessage(messageNode, result.warning ? `Invoice created. ${result.warning}` : 'Invoice created, PDF generated, and sent to client.');
+      await loadAdminOverview();
+      recalcInvoiceTotal();
+    } catch (error) {
+      setMessage(messageNode, error.message, true);
+    }
+  });
+
+  contractForm.addEventListener('submit', async (event) => {
+    event.preventDefault();
+    const messageNode = document.getElementById('contract-form-message');
+    setMessage(messageNode, 'Creating contract...');
+
+    const payload = Object.fromEntries(new FormData(contractForm).entries());
+    delete payload.deductibleDuePreview;
+
+    try {
+      const result = await apiFetch('/api/admin/contracts', {
+        method: 'POST',
+        body: JSON.stringify(payload),
+      });
+      contractForm.reset();
+      contractForm.elements.totalCostDollars.value = '1000.00';
+      contractForm.elements.deductiblePercent.value = '25.00';
+      recalcContractDeductible();
+      setMessage(messageNode, result.warning ? `Contract created. ${result.warning}` : 'Contract created, PDF generated, and sent to client.');
       await loadAdminOverview();
     } catch (error) {
       setMessage(messageNode, error.message, true);
@@ -593,29 +903,23 @@ function formatMaintenanceTier(value) {
 }
 
 function formatInvoiceDescription(value) {
-  const description = value || 'Website services';
-  const matchingTier = Object.keys(maintenanceTierLabels).find((tier) => description.startsWith(tier));
-
-  if (!matchingTier) {
-    return description;
-  }
-
-  return description.replace(matchingTier, maintenanceTierLabels[matchingTier]);
+  return value || 'Website services';
 }
 
-function buildInvoiceDescription(maintenanceTier, invoiceDescription) {
-  const details = String(invoiceDescription || '').trim();
+function buildInvoiceDescription(payload) {
+  const details = String(payload.invoiceDescription || '').trim();
+  const labels = [payload.siteType, payload.maintenanceTier].filter(Boolean).join(' | ');
 
   if (!details) {
-    return maintenanceTier;
+    return labels || 'Website services';
   }
 
-  return `${maintenanceTier} | ${details}`;
+  return `${labels} | ${details}`;
 }
 
 function formatCurrency(amount) {
   return new Intl.NumberFormat('en-US', {
     style: 'currency',
     currency: 'USD',
-  }).format(amount || 0);
+  }).format(Number(amount || 0));
 }

@@ -25,6 +25,15 @@ create table if not exists public.invoices (
   client_id uuid not null references public.client_accounts (id) on delete cascade,
   invoice_number text not null unique,
   description text,
+  site_type text,
+  extra_pages_count integer not null default 0,
+  extra_pages_type text,
+  extra_features_count integer not null default 0,
+  extra_features_type text,
+  line_items jsonb not null default '[]'::jsonb,
+  subtotal_dollars numeric(10,2),
+  tax_dollars numeric(10,2) not null default 0,
+  total_dollars numeric(10,2),
   amount_dollars numeric(10,2) not null check (amount_dollars > 0),
   currency text not null default 'USD',
   status text not null default 'unpaid' check (status in ('draft', 'unpaid', 'paid', 'overdue')),
@@ -34,6 +43,33 @@ create table if not exists public.invoices (
   issued_at timestamptz not null default timezone('utc', now()),
   paid_at timestamptz
 );
+
+create table if not exists public.contracts (
+  id uuid primary key default gen_random_uuid(),
+  client_id uuid not null references public.client_accounts (id) on delete cascade,
+  contract_number text not null unique,
+  project_title text not null,
+  site_type text,
+  timeline text,
+  total_cost_dollars numeric(10,2) not null check (total_cost_dollars > 0),
+  deductible_percent numeric(5,2) not null default 25,
+  deductible_due_dollars numeric(10,2) not null check (deductible_due_dollars >= 0),
+  remaining_balance_dollars numeric(10,2) not null check (remaining_balance_dollars >= 0),
+  terms_text text,
+  status text not null default 'sent' check (status in ('draft', 'sent', 'signed', 'cancelled')),
+  signed_at timestamptz,
+  created_at timestamptz not null default timezone('utc', now())
+);
+
+alter table public.invoices add column if not exists site_type text;
+alter table public.invoices add column if not exists extra_pages_count integer not null default 0;
+alter table public.invoices add column if not exists extra_pages_type text;
+alter table public.invoices add column if not exists extra_features_count integer not null default 0;
+alter table public.invoices add column if not exists extra_features_type text;
+alter table public.invoices add column if not exists line_items jsonb not null default '[]'::jsonb;
+alter table public.invoices add column if not exists subtotal_dollars numeric(10,2);
+alter table public.invoices add column if not exists tax_dollars numeric(10,2) not null default 0;
+alter table public.invoices add column if not exists total_dollars numeric(10,2);
 
 create table if not exists public.change_requests (
   id uuid primary key default gen_random_uuid(),
@@ -89,6 +125,7 @@ execute procedure public.set_timestamp();
 alter table public.profiles enable row level security;
 alter table public.client_accounts enable row level security;
 alter table public.invoices enable row level security;
+alter table public.contracts enable row level security;
 alter table public.change_requests enable row level security;
 alter table public.support_questions enable row level security;
 alter table public.subscription_change_requests enable row level security;
@@ -114,6 +151,19 @@ using (
     select 1
     from public.client_accounts
     where client_accounts.id = invoices.client_id
+      and client_accounts.profile_id = auth.uid()
+  )
+);
+
+drop policy if exists "Users can view own contracts" on public.contracts;
+create policy "Users can view own contracts"
+on public.contracts
+for select
+using (
+  exists (
+    select 1
+    from public.client_accounts
+    where client_accounts.id = contracts.client_id
       and client_accounts.profile_id = auth.uid()
   )
 );
