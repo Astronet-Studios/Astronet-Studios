@@ -584,6 +584,17 @@ main {
   resize: vertical;
 }
 
+.checkbox-label {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+}
+
+.checkbox-label input[type="checkbox"] {
+  width: auto;
+  accent-color: var(--blue-light);
+}
+
 .portal-form input[readonly] {
   background: rgba(15, 23, 42, 0.9);
   border-color: rgba(66, 165, 245, 0.4);
@@ -629,6 +640,69 @@ main {
 .portal-grid-wide {
   grid-template-columns: repeat(2, minmax(0, 1fr));
   margin-top: 1rem;
+  align-items: start;
+}
+
+.admin-section {
+  margin-top: 1rem;
+}
+
+.admin-section-heading {
+  margin-bottom: 0.8rem;
+}
+
+.admin-section-heading h2 {
+  margin: 0.35rem 0 0;
+  font-size: clamp(1.15rem, 2vw, 1.5rem);
+}
+
+.admin-actions-grid,
+.admin-records-grid,
+.admin-requests-grid {
+  display: grid;
+  gap: 1rem;
+}
+
+.admin-actions-grid {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  grid-template-areas:
+    "add-client create-invoice"
+    "create-contract create-contract";
+}
+
+.admin-card-add-client {
+  grid-area: add-client;
+}
+
+.admin-card-create-invoice {
+  grid-area: create-invoice;
+}
+
+.admin-card-create-contract {
+  grid-area: create-contract;
+}
+
+.admin-records-grid {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  grid-template-areas:
+    "clients clients"
+    "invoices contracts";
+}
+
+.admin-card-clients {
+  grid-area: clients;
+}
+
+.admin-card-invoices {
+  grid-area: invoices;
+}
+
+.admin-card-contracts {
+  grid-area: contracts;
+}
+
+.admin-requests-grid {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
 }
 
 .portal-card {
@@ -871,6 +945,22 @@ main {
 
   .admin-form .form-inline-pair {
     grid-template-columns: 1fr;
+  }
+
+  .admin-actions-grid,
+  .admin-records-grid,
+  .admin-requests-grid {
+    grid-template-columns: 1fr;
+    grid-template-areas: none;
+  }
+
+  .admin-card-add-client,
+  .admin-card-create-invoice,
+  .admin-card-create-contract,
+  .admin-card-clients,
+  .admin-card-invoices,
+  .admin-card-contracts {
+    grid-area: auto;
   }
 
   .main-nav {

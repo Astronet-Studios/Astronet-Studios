@@ -696,6 +696,11 @@ function calculateInvoiceTotals(payload) {
   };
 }
 
+function parseMoneyInput(value) {
+  const parsed = Number(String(value || '').replace(/[$,\s]/g, ''));
+  return Number.isFinite(parsed) ? parsed : 0;
+}
+
 function renderInvoicePricingPreview(totals) {
   const preview = document.getElementById('invoice-pricing-preview');
   if (!preview) {
@@ -729,6 +734,27 @@ function renderInvoicePricingPreview(totals) {
   `;
 }
 
+function applyManualInvoiceTotalPreview(totals, manualFinalTotal) {
+  const adjustedTotals = {
+    ...totals,
+    lineItems: [...totals.lineItems],
+    subtotal: totals.subtotal,
+    total: manualFinalTotal,
+  };
+
+  const adjustment = Number((manualFinalTotal - totals.total).toFixed(2));
+  if (Math.abs(adjustment) > 0.001) {
+    adjustedTotals.lineItems.push({
+      name: 'Manual final total adjustment',
+      quantity: 1,
+      total: adjustment,
+    });
+    adjustedTotals.subtotal = Number((totals.subtotal + adjustment).toFixed(2));
+  }
+
+  renderInvoicePricingPreview(adjustedTotals);
+}
+
 function bindAdminForms() {
   const clientForm = document.getElementById('client-form');
   const invoiceForm = document.getElementById('invoice-form');
@@ -738,8 +764,30 @@ function bindAdminForms() {
   const recalcInvoiceTotal = () => {
     const payload = Object.fromEntries(new FormData(invoiceForm).entries());
     const totals = calculateInvoiceTotals(payload);
-    invoiceForm.elements.computedTotal.value = formatCurrency(totals.total);
-    renderInvoicePricingPreview(totals);
+    const manualOverrideEnabled = Boolean(invoiceForm.elements.manualTotalOverride.checked);
+
+    if (!manualOverrideEnabled) {
+      invoiceForm.elements.computedTotal.value = formatCurrency(totals.total);
+      invoiceForm.elements.finalTotalOverride.value = totals.total.toFixed(2);
+      renderInvoicePricingPreview(totals);
+      return;
+    }
+
+    const manualFinalTotal = parseMoneyInput(invoiceForm.elements.finalTotalOverride.value || totals.total);
+    invoiceForm.elements.computedTotal.value = formatCurrency(manualFinalTotal);
+    applyManualInvoiceTotalPreview(totals, manualFinalTotal);
+  };
+
+  const toggleInvoiceManualOverride = () => {
+    const manualOverrideEnabled = Boolean(invoiceForm.elements.manualTotalOverride.checked);
+    invoiceForm.elements.finalTotalOverride.disabled = !manualOverrideEnabled;
+
+    if (manualOverrideEnabled) {
+      invoiceForm.elements.finalTotalOverride.focus();
+      return;
+    }
+
+    recalcInvoiceTotal();
   };
 
   const recalcContractDeductible = () => {
@@ -763,12 +811,23 @@ function bindAdminForms() {
     invoiceForm.elements[field].addEventListener('change', recalcInvoiceTotal);
   });
 
+  invoiceForm.elements.manualTotalOverride.addEventListener('change', toggleInvoiceManualOverride);
+
+  invoiceForm.elements.finalTotalOverride.addEventListener('input', () => {
+    if (!invoiceForm.elements.manualTotalOverride.checked) {
+      return;
+    }
+
+    recalcInvoiceTotal();
+  });
+
   ['totalCostDollars', 'deductiblePercent'].forEach((field) => {
     contractForm.elements[field].addEventListener('input', recalcContractDeductible);
     contractForm.elements[field].addEventListener('change', recalcContractDeductible);
   });
 
   recalcInvoiceTotal();
+  toggleInvoiceManualOverride();
   recalcContractDeductible();
 
   clientForm.addEventListener('submit', async (event) => {
@@ -808,14 +867,31 @@ function bindAdminForms() {
 
     const payload = Object.fromEntries(new FormData(invoiceForm).entries());
     const totals = calculateInvoiceTotals(payload);
+    const manualOverrideEnabled = Boolean(payload.manualTotalOverride);
+    const finalTotal = manualOverrideEnabled ? parseMoneyInput(payload.finalTotalOverride) : totals.total;
 
     payload.description = buildInvoiceDescription(payload);
     payload.lineItems = totals.lineItems;
     payload.subtotalDollars = totals.subtotal.toFixed(2);
-    payload.totalDollars = totals.total.toFixed(2);
+    payload.totalDollars = finalTotal.toFixed(2);
     payload.taxDollars = Number(payload.taxDollars || 0).toFixed(2);
 
+    if (manualOverrideEnabled) {
+      const adjustment = finalTotal - totals.total;
+      if (Math.abs(adjustment) > 0.001) {
+        payload.lineItems.push({
+          name: 'Manual final total adjustment',
+          quantity: 1,
+          unitPrice: Number(adjustment.toFixed(2)),
+          total: Number(adjustment.toFixed(2)),
+        });
+        payload.subtotalDollars = (totals.subtotal + adjustment).toFixed(2);
+      }
+    }
+
     delete payload.computedTotal;
+    delete payload.manualTotalOverride;
+    delete payload.finalTotalOverride;
     delete payload.invoiceDescription;
 
     try {
@@ -829,6 +905,9 @@ function bindAdminForms() {
       invoiceForm.elements.extraPagesCount.value = '0';
       invoiceForm.elements.extraFeaturesCount.value = '0';
       invoiceForm.elements.computedTotal.value = '$0.00';
+      invoiceForm.elements.manualTotalOverride.checked = false;
+      invoiceForm.elements.finalTotalOverride.value = '';
+      invoiceForm.elements.finalTotalOverride.disabled = true;
       setMessage(messageNode, result.warning ? `Invoice created. ${result.warning}` : 'Invoice created, PDF generated, and sent to client.');
       await loadAdminOverview();
       recalcInvoiceTotal();
