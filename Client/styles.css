@@ -643,6 +643,47 @@ main {
   align-items: start;
 }
 
+.client-section {
+  margin-top: 1rem;
+}
+
+.client-section-heading {
+  margin-bottom: 0.8rem;
+}
+
+.client-section-heading h2 {
+  margin: 0.35rem 0 0;
+  font-size: clamp(1.15rem, 2vw, 1.5rem);
+}
+
+.client-overview-grid,
+.client-billing-grid,
+.client-requests-grid {
+  display: grid;
+  gap: 1rem;
+}
+
+.client-overview-grid {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.client-billing-grid {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  grid-template-areas: "invoices subscription";
+}
+
+.client-card-invoices {
+  grid-area: invoices;
+}
+
+.client-card-subscription {
+  grid-area: subscription;
+}
+
+.client-requests-grid {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
 .admin-section {
   margin-top: 1rem;
 }
@@ -703,6 +744,27 @@ main {
 
 .admin-requests-grid {
   grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.admin-search-label {
+  display: grid;
+  gap: 0.45rem;
+  margin-bottom: 0.85rem;
+}
+
+.admin-search-label span {
+  color: var(--muted);
+  font-size: 0.88rem;
+}
+
+.admin-search-label input {
+  width: 100%;
+  border: 1px solid rgba(30, 136, 255, 0.24);
+  border-radius: 12px;
+  background: rgba(8, 13, 31, 0.72);
+  color: var(--ink);
+  padding: 0.7rem 0.85rem;
+  font: inherit;
 }
 
 .portal-card {
@@ -945,6 +1007,18 @@ main {
 
   .admin-form .form-inline-pair {
     grid-template-columns: 1fr;
+  }
+
+  .client-overview-grid,
+  .client-billing-grid,
+  .client-requests-grid {
+    grid-template-columns: 1fr;
+    grid-template-areas: none;
+  }
+
+  .client-card-invoices,
+  .client-card-subscription {
+    grid-area: auto;
   }
 
   .admin-actions-grid,

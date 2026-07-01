@@ -252,16 +252,28 @@
       <div class="admin-records-grid">
         <article class="portal-card admin-card-clients">
         <p class="panel-title">Clients</p>
+        <label class="admin-search-label" for="admin-client-search">
+          <span>Search client by name</span>
+          <input type="search" id="admin-client-search" placeholder="Type client name" autocomplete="off" />
+        </label>
         <div id="admin-clients" class="table-shell"></div>
         </article>
 
         <article class="portal-card admin-card-invoices">
         <p class="panel-title">Invoices</p>
+        <label class="admin-search-label" for="admin-invoice-search">
+          <span>Search invoice by client name or invoice number</span>
+          <input type="search" id="admin-invoice-search" placeholder="Type client name or invoice #" autocomplete="off" />
+        </label>
         <div id="admin-invoices" class="table-shell"></div>
         </article>
 
         <article class="portal-card admin-card-contracts">
         <p class="panel-title">Contracts</p>
+        <label class="admin-search-label" for="admin-contract-search">
+          <span>Search contract by client name or contract number</span>
+          <input type="search" id="admin-contract-search" placeholder="Type client name or contract #" autocomplete="off" />
+        </label>
         <div id="admin-contracts" class="table-shell"></div>
         </article>
       </div>

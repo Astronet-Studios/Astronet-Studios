@@ -36,26 +36,37 @@
       <p class="hero-copy">Check your website status, review invoices, request updates, and ask support questions in one place.</p>
     </section>
 
-    <section class="portal-grid reveal show">
-      <article class="portal-card stat-card">
-        <p class="panel-title">Website Status</p>
-        <h2 id="website-status">Loading...</h2>
-        <p id="website-url" class="muted-copy"></p>
-      </article>
-      <article class="portal-card stat-card">
-        <p class="panel-title">Subscription Plan</p>
-        <h2 id="subscription-plan">Loading...</h2>
-        <p class="muted-copy">Plan changes can be requested below.</p>
-      </article>
-      <article class="portal-card stat-card">
-        <p class="panel-title">Open Invoices</p>
-        <h2 id="invoice-balance">$0.00</h2>
-        <p class="muted-copy" id="invoice-balance-caption">No unpaid invoices.</p>
-      </article>
+    <section class="client-section reveal show">
+      <div class="client-section-heading">
+        <p class="kicker">Overview</p>
+        <h2>Project Snapshot</h2>
+      </div>
+      <div class="client-overview-grid">
+        <article class="portal-card stat-card">
+          <p class="panel-title">Website Status</p>
+          <h2 id="website-status">Loading...</h2>
+          <p id="website-url" class="muted-copy"></p>
+        </article>
+        <article class="portal-card stat-card">
+          <p class="panel-title">Subscription Plan</p>
+          <h2 id="subscription-plan">Loading...</h2>
+          <p class="muted-copy">Plan changes can be requested below.</p>
+        </article>
+        <article class="portal-card stat-card">
+          <p class="panel-title">Open Invoices</p>
+          <h2 id="invoice-balance">$0.00</h2>
+          <p class="muted-copy" id="invoice-balance-caption">No unpaid invoices.</p>
+        </article>
+      </div>
     </section>
 
-    <section class="portal-grid portal-grid-wide reveal show">
-      <article class="portal-card">
+    <section class="client-section reveal show">
+      <div class="client-section-heading">
+        <p class="kicker">Billing</p>
+        <h2>Invoices and Plan Updates</h2>
+      </div>
+      <div class="client-billing-grid">
+        <article class="portal-card client-card-invoices">
         <div class="section-heading-row">
           <div>
             <p class="panel-title">Invoices</p>
@@ -63,9 +74,9 @@
           </div>
         </div>
         <div id="client-invoices" class="table-shell"></div>
-      </article>
+        </article>
 
-      <article class="portal-card">
+        <article class="portal-card client-card-subscription">
         <p class="panel-title">Change Subscription Plan</p>
         <form id="subscription-form" class="portal-form compact-form">
           <label>
@@ -84,9 +95,17 @@
           <button type="submit" class="btn btn-primary">Submit Plan Change</button>
           <p class="form-message" id="subscription-message" aria-live="polite"></p>
         </form>
-      </article>
+        </article>
+      </div>
+    </section>
 
-      <article class="portal-card">
+    <section class="client-section reveal show">
+      <div class="client-section-heading">
+        <p class="kicker">Requests</p>
+        <h2>Ask for Updates and Support</h2>
+      </div>
+      <div class="client-requests-grid">
+        <article class="portal-card">
         <p class="panel-title">Submit a Website Change</p>
         <form id="change-request-form" class="portal-form compact-form">
           <label>
@@ -108,9 +127,9 @@
           <button type="submit" class="btn btn-primary">Submit Change Request</button>
           <p class="form-message" id="change-request-message" aria-live="polite"></p>
         </form>
-      </article>
+        </article>
 
-      <article class="portal-card">
+        <article class="portal-card">
         <p class="panel-title">Help Support</p>
         <form id="support-form" class="portal-form compact-form">
           <label>
@@ -124,7 +143,8 @@
           <button type="submit" class="btn btn-primary">Submit Question</button>
           <p class="form-message" id="support-message" aria-live="polite"></p>
         </form>
-      </article>
+        </article>
+      </div>
     </section>
   </main>
 

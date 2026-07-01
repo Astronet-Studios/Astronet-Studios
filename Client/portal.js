@@ -2,6 +2,13 @@ let supabaseClient;
 let authSession;
 let currentMode = 'client';
 let adminClientState = [];
+let adminInvoiceState = [];
+let adminContractState = [];
+let adminSearchFilters = {
+  clients: '',
+  invoices: '',
+  contracts: '',
+};
 
 const maintenanceTierLabels = {
   'Tier 1 - Basic Care': 'Tier 1 - Basic Care ($49/month)',
@@ -378,15 +385,16 @@ async function initAdminDashboard() {
   bindLogout();
 
   await loadAdminOverview();
+  bindAdminFilters();
   bindAdminForms();
 }
 
 async function loadAdminOverview() {
   const data = await apiFetch('/api/admin/overview');
   adminClientState = data.clients;
-  renderAdminClients(data.clients);
-  renderAdminInvoices(data.invoices, data.clients);
-  renderAdminContracts(data.contracts || [], data.clients);
+  adminInvoiceState = data.invoices || [];
+  adminContractState = data.contracts || [];
+  applyAdminRecordFilters();
 
   renderRequestList('admin-change-requests', data.changeRequests, (item) => `
     <h3>${item.title}</h3>
@@ -412,11 +420,92 @@ async function loadAdminOverview() {
   contractSelect.innerHTML = options;
 }
 
-function renderAdminClients(clients) {
+function normalizeSearchValue(value) {
+  return String(value || '').trim().toLowerCase();
+}
+
+function clientDisplayName(client) {
+  return (client?.profile?.company_name || client?.profile?.full_name || '').trim();
+}
+
+function bindAdminFilters() {
+  const clientSearchInput = document.getElementById('admin-client-search');
+  const invoiceSearchInput = document.getElementById('admin-invoice-search');
+  const contractSearchInput = document.getElementById('admin-contract-search');
+
+  if (!clientSearchInput || !invoiceSearchInput || !contractSearchInput) {
+    return;
+  }
+
+  clientSearchInput.addEventListener('input', (event) => {
+    adminSearchFilters.clients = event.target.value || '';
+    applyAdminRecordFilters();
+  });
+
+  invoiceSearchInput.addEventListener('input', (event) => {
+    adminSearchFilters.invoices = event.target.value || '';
+    applyAdminRecordFilters();
+  });
+
+  contractSearchInput.addEventListener('input', (event) => {
+    adminSearchFilters.contracts = event.target.value || '';
+    applyAdminRecordFilters();
+  });
+}
+
+function applyAdminRecordFilters() {
+  const clientQuery = normalizeSearchValue(adminSearchFilters.clients);
+  const invoiceQuery = normalizeSearchValue(adminSearchFilters.invoices);
+  const contractQuery = normalizeSearchValue(adminSearchFilters.contracts);
+
+  const filteredClients = adminClientState.filter((client) => {
+    if (!clientQuery) {
+      return true;
+    }
+
+    return clientDisplayName(client).toLowerCase().includes(clientQuery);
+  });
+
+  const clientsById = new Map(adminClientState.map((client) => [client.id, client]));
+
+  const filteredInvoices = adminInvoiceState.filter((invoice) => {
+    if (!invoiceQuery) {
+      return true;
+    }
+
+    const invoiceNumber = String(invoice.invoice_number || '').toLowerCase();
+    const invoiceClientName = clientDisplayName(clientsById.get(invoice.client_id)).toLowerCase();
+    return invoiceNumber.includes(invoiceQuery) || invoiceClientName.includes(invoiceQuery);
+  });
+
+  const filteredContracts = adminContractState.filter((contract) => {
+    if (!contractQuery) {
+      return true;
+    }
+
+    const contractNumber = String(contract.contract_number || '').toLowerCase();
+    const contractClientName = clientDisplayName(clientsById.get(contract.client_id)).toLowerCase();
+    return contractNumber.includes(contractQuery) || contractClientName.includes(contractQuery);
+  });
+
+  renderAdminClients(filteredClients, {
+    isFiltered: Boolean(clientQuery),
+  });
+  renderAdminInvoices(filteredInvoices, adminClientState, {
+    isFiltered: Boolean(invoiceQuery),
+  });
+  renderAdminContracts(filteredContracts, adminClientState, {
+    isFiltered: Boolean(contractQuery),
+  });
+}
+
+function renderAdminClients(clients, options = {}) {
   const shell = document.getElementById('admin-clients');
 
   if (!clients.length) {
-    shell.innerHTML = '<p class="muted-copy">No clients yet.</p>';
+    shell.innerHTML = options.isFiltered
+      ? '<p class="muted-copy">No clients match this search.</p>'
+      : '<p class="muted-copy">No clients yet.</p>';
     return;
   }
 
@@ -476,12 +565,14 @@ function renderAdminClients(clients) {
   });
 }
 
-function renderAdminInvoices(invoices, clients) {
+function renderAdminInvoices(invoices, clients, options = {}) {
   const clientsById = new Map(clients.map((client) => [client.id, client]));
   const shell = document.getElementById('admin-invoices');
 
   if (!invoices.length) {
-    shell.innerHTML = '<p class="muted-copy">No invoices yet.</p>';
+    shell.innerHTML = options.isFiltered
+      ? '<p class="muted-copy">No invoices match this search.</p>'
+      : '<p class="muted-copy">No invoices yet.</p>';
     return;
   }
 
@@ -555,7 +646,7 @@ function renderAdminInvoices(invoices, clients) {
   });
 }
 
-function renderAdminContracts(contracts, clients) {
+function renderAdminContracts(contracts, clients, options = {}) {
   const clientsById = new Map(clients.map((client) => [client.id, client]));
   const shell = document.getElementById('admin-contracts');
 
@@ -564,7 +655,9 @@ function renderAdminContracts(contracts, clients) {
   }
 
   if (!contracts.length) {
-    shell.innerHTML = '<p class="muted-copy">No contracts yet.</p>';
+    shell.innerHTML = options.isFiltered
+      ? '<p class="muted-copy">No contracts match this search.</p>'
+      : '<p class="muted-copy">No contracts yet.</p>';
     return;
   }
 
