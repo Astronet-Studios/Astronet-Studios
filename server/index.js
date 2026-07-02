@@ -780,6 +780,102 @@ async function fetchPandaDocDocumentStatus(documentId, apiKey) {
   return payload;
 }
 
+async function fetchPandaDocDocumentDetails(documentId, apiKey) {
+  const response = await fetch(`${pandadocBaseUrl}/documents/${documentId}/details`, {
+    method: 'GET',
+    headers: {
+      Authorization: `API-Key ${apiKey}`,
+      Accept: 'application/json',
+    },
+  });
+
+  const payload = await response.json().catch(() => ({}));
+  if (!response.ok) {
+    const detail = extractPandaDocErrorMessage(payload, 'PandaDoc document details request failed.');
+    throw new Error(`${detail} (HTTP ${response.status})`);
+  }
+
+  return payload;
+}
+
+async function fetchPandaDocDocumentFields(documentId, apiKey) {
+  const response = await fetch(`${pandadocBaseUrl}/documents/${documentId}/fields`, {
+    method: 'GET',
+    headers: {
+      Authorization: `API-Key ${apiKey}`,
+      Accept: 'application/json',
+    },
+  });
+
+  const payload = await response.json().catch(() => ({}));
+  if (!response.ok) {
+    const detail = extractPandaDocErrorMessage(payload, 'PandaDoc document fields request failed.');
+    throw new Error(`${detail} (HTTP ${response.status})`);
+  }
+
+  return payload?.fields || [];
+}
+
+async function ensurePandaDocSignatureField(documentId, apiKey, signerEmail) {
+  const details = await fetchPandaDocDocumentDetails(documentId, apiKey);
+  const recipients = details?.recipients || [];
+  const matchingRecipient = recipients.find((entry) =>
+    String(entry?.email || '').toLowerCase() === String(signerEmail || '').toLowerCase()
+  );
+  const recipient = matchingRecipient || recipients[0] || null;
+
+  if (!recipient?.id) {
+    throw new Error('PandaDoc recipient was not found when creating signature field.');
+  }
+
+  const fields = await fetchPandaDocDocumentFields(documentId, apiKey);
+  const hasSignatureField = fields.some((field) =>
+    field?.type === 'signature' && field?.assigned_to?.id === recipient.id
+  );
+
+  if (hasSignatureField) {
+    return;
+  }
+
+  const createFieldPayload = {
+    fields: [
+      {
+        type: 'signature',
+        title: 'Client Signature',
+        assigned_to: recipient.id,
+        layout: {
+          page: 1,
+          position: {
+            offset_x: 360,
+            offset_y: 700,
+            anchor_point: 'topleft',
+          },
+          style: {
+            width: 180,
+            height: 45,
+          },
+        },
+      },
+    ],
+  };
+
+  const createFieldResponse = await fetch(`${pandadocBaseUrl}/documents/${documentId}/fields`, {
+    method: 'POST',
+    headers: {
+      Authorization: `API-Key ${apiKey}`,
+      Accept: 'application/json',
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify(createFieldPayload),
+  });
+
+  const createFieldResult = await createFieldResponse.json().catch(() => ({}));
+  if (!createFieldResponse.ok) {
+    const detail = formatPandaDocFailure(createFieldResponse, createFieldResult, 'Unable to add PandaDoc signature field.');
+    throw new Error(detail);
+  }
+}
+
 function extractPandaDocErrorMessage(payload, fallbackMessage) {
   if (!payload || typeof payload !== 'object') {
     return fallbackMessage;
@@ -898,6 +994,8 @@ async function sendContractForESign(contract, clientAccount, profile) {
   if (documentStatus !== 'document.draft') {
     throw new Error(`PandaDoc document never reached draft status before send (current status: ${documentStatus}).`);
   }
+
+  await ensurePandaDocSignatureField(documentId, apiKey, profile.email);
 
   const sendBody = {
     subject: `Please sign contract ${contract.contract_number}`,
