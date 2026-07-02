@@ -58,6 +58,41 @@ const defaultContractTerms = [
   '6. Support: Post-launch support is available through active monthly maintenance plans.',
   '7. Termination: Either party may terminate with written notice; completed work remains billable.',
 ].join('\n');
+const contractDefaultCompanySignerName = process.env.CONTRACT_SIGNER_NAME || 'Astronet Studios';
+const contractEsignLayout = {
+  client: {
+    signature: {
+      page: 1,
+      offsetX: 122,
+      offsetY: 668,
+      width: 200,
+      height: 36,
+    },
+    date: {
+      page: 1,
+      offsetX: 122,
+      offsetY: 714,
+      width: 140,
+      height: 30,
+    },
+  },
+  company: {
+    signature: {
+      page: 1,
+      offsetX: 352,
+      offsetY: 668,
+      width: 200,
+      height: 36,
+    },
+    date: {
+      page: 1,
+      offsetX: 352,
+      offsetY: 714,
+      width: 140,
+      height: 30,
+    },
+  },
+};
 
 const hasSupabaseConfig = Boolean(
   process.env.SUPABASE_URL &&
@@ -149,6 +184,19 @@ function parseCount(value) {
 
 function toCurrencyAmount(value) {
   return Number(parseMoney(value, 0).toFixed(2));
+}
+
+function splitNameParts(name, fallbackFirstName = 'Signer') {
+  const normalized = String(name || '').trim();
+  if (!normalized) {
+    return { firstName: fallbackFirstName, lastName: 'User' };
+  }
+
+  const [firstName, ...lastNameParts] = normalized.split(/\s+/);
+  return {
+    firstName: firstName || fallbackFirstName,
+    lastName: lastNameParts.join(' ') || 'User',
+  };
 }
 
 function formatCurrency(value) {
@@ -373,9 +421,43 @@ function generateContractPdf(contract, clientAccount, profile) {
       lineGap: 3,
     });
 
-    doc.moveDown(1.4);
-    doc.fontSize(10).fillColor('#0f172a').text('Client Signature: ____________________________');
-    doc.text('Date: ____________________________');
+    const minRoomForSignatures = 150;
+    if (doc.y > doc.page.height - minRoomForSignatures) {
+      doc.addPage();
+    }
+
+    const drawSignatureBlock = ({ label, signature, date }) => {
+      const signatureLabelY = signature.offsetY + 10;
+      const signatureLineY = signatureLabelY + 12;
+      const dateLabelY = date.offsetY + 8;
+      const dateLineY = dateLabelY + 12;
+
+      doc.fontSize(10).fillColor('#0f172a').text(`${label} Signature:`, signature.offsetX, signatureLabelY);
+      doc.moveTo(signature.offsetX, signatureLineY)
+        .lineTo(signature.offsetX + signature.width, signatureLineY)
+        .lineWidth(1)
+        .strokeColor('#475569')
+        .stroke();
+
+      doc.fillColor('#0f172a').text('Date:', date.offsetX, dateLabelY);
+      doc.moveTo(date.offsetX, dateLineY)
+        .lineTo(date.offsetX + date.width, dateLineY)
+        .lineWidth(1)
+        .strokeColor('#475569')
+        .stroke();
+    };
+
+    drawSignatureBlock({
+      label: 'Client',
+      signature: contractEsignLayout.client.signature,
+      date: contractEsignLayout.client.date,
+    });
+
+    drawSignatureBlock({
+      label: 'Astronet Studios',
+      signature: contractEsignLayout.company.signature,
+      date: contractEsignLayout.company.date,
+    });
   });
 }
 
@@ -816,47 +898,79 @@ async function fetchPandaDocDocumentFields(documentId, apiKey) {
   return payload?.fields || [];
 }
 
-async function ensurePandaDocSignatureField(documentId, apiKey, signerEmail) {
+async function ensurePandaDocSignatureField(documentId, apiKey, signers) {
   const details = await fetchPandaDocDocumentDetails(documentId, apiKey);
   const recipients = details?.recipients || [];
-  const matchingRecipient = recipients.find((entry) =>
-    String(entry?.email || '').toLowerCase() === String(signerEmail || '').toLowerCase()
-  );
-  const recipient = matchingRecipient || recipients[0] || null;
-
-  if (!recipient?.id) {
-    throw new Error('PandaDoc recipient was not found when creating signature field.');
-  }
 
   const fields = await fetchPandaDocDocumentFields(documentId, apiKey);
-  const hasSignatureField = fields.some((field) =>
-    field?.type === 'signature' && field?.assigned_to?.id === recipient.id
-  );
 
-  if (hasSignatureField) {
+  const fieldsToCreate = [];
+
+  for (let index = 0; index < signers.length; index += 1) {
+    const signer = signers[index];
+    const matchingRecipient = recipients.find((entry) =>
+      String(entry?.email || '').toLowerCase() === String(signer.email || '').toLowerCase()
+    );
+    const recipient = matchingRecipient || recipients[index] || null;
+
+    if (!recipient?.id) {
+      throw new Error(`PandaDoc recipient was not found for ${signer.roleLabel}.`);
+    }
+
+    const hasSignatureField = fields.some((field) =>
+      field?.type === 'signature' && field?.assigned_to?.id === recipient.id
+    );
+    const hasDateField = fields.some((field) =>
+      field?.type === 'date' && field?.assigned_to?.id === recipient.id
+    );
+
+    if (!hasSignatureField) {
+      fieldsToCreate.push({
+        type: 'signature',
+        title: `${signer.roleLabel} Signature`,
+        assigned_to: recipient.id,
+        layout: {
+          page: signer.layout.signature.page,
+          position: {
+            offset_x: signer.layout.signature.offsetX,
+            offset_y: signer.layout.signature.offsetY,
+            anchor_point: 'topleft',
+          },
+          style: {
+            width: signer.layout.signature.width,
+            height: signer.layout.signature.height,
+          },
+        },
+      });
+    }
+
+    if (!hasDateField) {
+      fieldsToCreate.push({
+        type: 'date',
+        title: `${signer.roleLabel} Date`,
+        assigned_to: recipient.id,
+        layout: {
+          page: signer.layout.date.page,
+          position: {
+            offset_x: signer.layout.date.offsetX,
+            offset_y: signer.layout.date.offsetY,
+            anchor_point: 'topleft',
+          },
+          style: {
+            width: signer.layout.date.width,
+            height: signer.layout.date.height,
+          },
+        },
+      });
+    }
+  }
+
+  if (!fieldsToCreate.length) {
     return;
   }
 
   const createFieldPayload = {
-    fields: [
-      {
-        type: 'signature',
-        title: 'Client Signature',
-        assigned_to: recipient.id,
-        layout: {
-          page: 1,
-          position: {
-            offset_x: 360,
-            offset_y: 700,
-            anchor_point: 'topleft',
-          },
-          style: {
-            width: 180,
-            height: 45,
-          },
-        },
-      },
-    ],
+    fields: fieldsToCreate,
   };
 
   const createFieldResponse = await fetch(`${pandadocBaseUrl}/documents/${documentId}/fields`, {
@@ -941,17 +1055,49 @@ async function sendContractForESign(contract, clientAccount, profile) {
   }
 
   const pdfBuffer = await generateContractPdf(contract, clientAccount, profile);
-  const signerName = profile.full_name || profile.company_name || profile.email || 'Client';
-  const [firstName, ...lastNameParts] = signerName.split(' ');
+  const companySignerEmail = (
+    process.env.CONTRACT_SIGNER_EMAIL ||
+    process.env.ADMIN_EMAIL ||
+    process.env.SMTP_USER ||
+    ''
+  ).trim();
+
+  if (!companySignerEmail) {
+    throw new Error('Set CONTRACT_SIGNER_EMAIL (or ADMIN_EMAIL) to enable two-party contract signatures.');
+  }
+
+  const clientSignerName = profile.full_name || profile.company_name || profile.email || 'Client';
+  const companySignerName = process.env.CONTRACT_SIGNER_NAME || contractDefaultCompanySignerName;
+  const clientNameParts = splitNameParts(clientSignerName, 'Client');
+  const companyNameParts = splitNameParts(companySignerName, 'Astronet');
+
+  const signers = [
+    {
+      roleLabel: 'Astronet Studios',
+      email: companySignerEmail,
+      first_name: companyNameParts.firstName,
+      last_name: companyNameParts.lastName,
+      signing_order: 1,
+      layout: contractEsignLayout.company,
+    },
+    {
+      roleLabel: 'Client',
+      email: profile.email,
+      first_name: clientNameParts.firstName,
+      last_name: clientNameParts.lastName,
+      signing_order: 2,
+      layout: contractEsignLayout.client,
+    },
+  ];
+
   const createPayload = {
     name: `Astronet Contract ${contract.contract_number}`,
-    recipients: [
-      {
-        email: profile.email,
-        first_name: firstName || signerName,
-        last_name: lastNameParts.join(' ') || 'Client',
-      },
-    ],
+    recipients: signers.map((signer) => ({
+      email: signer.email,
+      first_name: signer.first_name,
+      last_name: signer.last_name,
+      signing_order: signer.signing_order,
+    })),
     metadata: {
       contract_id: contract.id,
       contract_number: contract.contract_number,
@@ -995,7 +1141,7 @@ async function sendContractForESign(contract, clientAccount, profile) {
     throw new Error(`PandaDoc document never reached draft status before send (current status: ${documentStatus}).`);
   }
 
-  await ensurePandaDocSignatureField(documentId, apiKey, profile.email);
+  await ensurePandaDocSignatureField(documentId, apiKey, signers);
 
   const sendBody = {
     subject: `Please sign contract ${contract.contract_number}`,
