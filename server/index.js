@@ -1,4 +1,5 @@
 const crypto = require('crypto');
+const fs = require('fs');
 const path = require('path');
 
 const dotenv = require('dotenv');
@@ -59,7 +60,13 @@ const defaultContractTerms = [
 ].join('\n');
 const contractBusinessName = process.env.CONTRACT_BUSINESS_NAME || 'Astronet Studios';
 const contractBusinessSigner = process.env.CONTRACT_SIGNER_NAME || 'Joseph Kadet';
+const contractBusinessSignatureDisplay = process.env.CONTRACT_SIGNATURE_DISPLAY_NAME || contractBusinessSigner;
 const contractBusinessRole = process.env.CONTRACT_SIGNER_ROLE || 'Owner|Partner';
+const contractSignatureFontPath = process.env.CONTRACT_SIGNATURE_FONT_PATH || '';
+const parsedContractSignatureLetterSpacing = Number(process.env.CONTRACT_SIGNATURE_LETTER_SPACING);
+const contractSignatureLetterSpacing = Number.isFinite(parsedContractSignatureLetterSpacing)
+  ? parsedContractSignatureLetterSpacing
+  : -1.25;
 
 const hasSupabaseConfig = Boolean(
   process.env.SUPABASE_URL &&
@@ -380,17 +387,35 @@ function generateContractPdf(contract, clientAccount, profile) {
     const left = 72;
     const right = 520;
     const panelTop = doc.y + 8;
-    const panelHeight = 92;
+    const panelHeight = 126;
     doc.roundedRect(left, panelTop, right - left, panelHeight, 8)
       .fillAndStroke('#f8fafc', '#cbd5e1');
 
+    const resolvedSignatureFontPath = contractSignatureFontPath
+      ? (path.isAbsolute(contractSignatureFontPath)
+        ? contractSignatureFontPath
+        : path.join(__dirname, '..', contractSignatureFontPath))
+      : null;
+    const canUseCustomSignatureFont = Boolean(
+      resolvedSignatureFontPath && fs.existsSync(resolvedSignatureFontPath)
+    );
+    if (canUseCustomSignatureFont) {
+      doc.registerFont('contract-signature-font', resolvedSignatureFontPath);
+    }
+
     doc.fillColor('#0f172a').fontSize(11).text('Authorized Business Signature', left + 12, panelTop + 10);
     doc.fillColor('#334155').fontSize(10).text(`Business Name: ${contractBusinessName}`, left + 12, panelTop + 30);
-    doc.text('Signature:', left + 12, panelTop + 46);
-    doc.font('Times-Italic').fontSize(16).fillColor('#0f172a').text(contractBusinessSigner, left + 84, panelTop + 41);
-    doc.font('Helvetica').fillColor('#334155').fontSize(10).text(`Printed Name: ${contractBusinessSigner}`, left + 12, panelTop + 66);
-    doc.text(`Role: ${contractBusinessRole}`, left + 240, panelTop + 66);
-    doc.text(`Date: ${businessDate}`, left + 390, panelTop + 66, { width: 118, align: 'right' });
+    doc.text('Signature:', left + 12, panelTop + 52);
+    doc.font(canUseCustomSignatureFont ? 'contract-signature-font' : 'Times-Italic')
+      .fontSize(canUseCustomSignatureFont ? 21 : 18)
+      .fillColor('#0f172a')
+      .text(contractBusinessSignatureDisplay, left + 74, panelTop + 44, {
+        characterSpacing: canUseCustomSignatureFont ? contractSignatureLetterSpacing : 0,
+        features: ['liga', 'clig', 'calt', 'kern'],
+      });
+    doc.font('Helvetica').fillColor('#334155').fontSize(10).text(`Printed Name: ${contractBusinessSigner}`, left + 12, panelTop + 68);
+    doc.text(`Date: ${businessDate}`, left + 12, panelTop + 82);
+    doc.text(`Role: ${contractBusinessRole}`, left + 12, panelTop + 96);
 
     const clientTop = panelTop + panelHeight + 18;
     doc.fillColor('#0f172a').fontSize(11).text('Client Signature (Please Sign And Send Back)', left, clientTop);

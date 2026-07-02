@@ -53,6 +53,9 @@ const extraFeatureTypePricing = {
   'Custom Dashboard': 2500,
 };
 
+const extraPageTypeOptions = Object.keys(extraPageTypePricing);
+const extraFeatureTypeOptions = Object.keys(extraFeatureTypePricing);
+
 document.addEventListener('DOMContentLoaded', async () => {
   const page = document.body.dataset.page;
 
@@ -731,6 +734,88 @@ function renderRequestList(containerId, items, template) {
   shell.innerHTML = items.map((item) => `<article class="request-card">${template(item)}</article>`).join('');
 }
 
+function parsePositiveCount(value) {
+  const parsed = Number.parseInt(value, 10);
+  return Number.isFinite(parsed) && parsed > 0 ? parsed : 0;
+}
+
+function buildInvoiceOptionTypeMarkup(options, selectedValue = '') {
+  const optionRows = options
+    .map((entry) => `<option value="${entry}" ${entry === selectedValue ? 'selected' : ''}>${entry}</option>`)
+    .join('');
+
+  return `<option value="">Select type</option>${optionRows}`;
+}
+
+function createInvoiceOptionRow(kind, selectedType = '', selectedCount = 1) {
+  const wrapper = document.createElement('div');
+  wrapper.className = 'multi-option-row';
+  wrapper.dataset.kind = kind;
+
+  const options = kind === 'pages' ? extraPageTypeOptions : extraFeatureTypeOptions;
+  const typeMarkup = buildInvoiceOptionTypeMarkup(options, selectedType);
+  wrapper.innerHTML = `
+    <label>
+      <span>${kind === 'pages' ? 'Page Type' : 'Feature Type'}</span>
+      <select class="invoice-option-type">${typeMarkup}</select>
+    </label>
+    <label>
+      <span>Count</span>
+      <input type="number" class="invoice-option-count" min="1" value="${Math.max(1, parsePositiveCount(selectedCount) || 1)}" />
+    </label>
+    <button type="button" class="btn btn-secondary btn-small remove-option-row">Remove</button>
+  `;
+
+  return wrapper;
+}
+
+function collectInvoiceOptionSelections(container) {
+  if (!container) {
+    return [];
+  }
+
+  return Array.from(container.querySelectorAll('.multi-option-row'))
+    .map((row) => {
+      const type = row.querySelector('.invoice-option-type')?.value || '';
+      const count = parsePositiveCount(row.querySelector('.invoice-option-count')?.value || 0);
+      return { type: type.trim(), count };
+    })
+    .filter((entry) => entry.type && entry.count > 0);
+}
+
+function mergeInvoiceOptionSelections(selections) {
+  if (!Array.isArray(selections) || !selections.length) {
+    return [];
+  }
+
+  const totalsByType = new Map();
+
+  selections.forEach((entry) => {
+    const type = String(entry.type || '').trim();
+    const count = parsePositiveCount(entry.count);
+    if (!type || count <= 0) {
+      return;
+    }
+
+    const current = totalsByType.get(type) || 0;
+    totalsByType.set(type, current + count);
+  });
+
+  return Array.from(totalsByType.entries()).map(([type, count]) => ({ type, count }));
+}
+
+function summarizeInvoiceOptionSelections(label, selections) {
+  const mergedSelections = mergeInvoiceOptionSelections(selections);
+  if (!mergedSelections.length) {
+    return null;
+  }
+
+  const summary = mergedSelections
+    .map((entry) => `${entry.type} x${entry.count}`)
+    .join(', ');
+  return `${label}: ${summary}`;
+}
+
 function buildInvoiceLineItems(payload) {
   const lineItems = [];
 
@@ -754,26 +839,56 @@ function buildInvoiceLineItems(payload) {
     });
   }
 
-  const extraPagesCount = Number(payload.extraPagesCount || 0);
-  const pageUnit = extraPageTypePricing[payload.extraPagesType] || 0;
-  if (extraPagesCount > 0 && pageUnit > 0) {
-    lineItems.push({
-      name: `${payload.extraPagesType} extra pages`,
-      quantity: extraPagesCount,
-      unitPrice: pageUnit,
-      total: extraPagesCount * pageUnit,
+  const pageSelections = mergeInvoiceOptionSelections(payload.extraPageSelections);
+  if (pageSelections.length) {
+    pageSelections.forEach((entry) => {
+      const unit = extraPageTypePricing[entry.type] || 0;
+      if (entry.count > 0 && unit > 0) {
+        lineItems.push({
+          name: `${entry.type} extra pages`,
+          quantity: entry.count,
+          unitPrice: unit,
+          total: entry.count * unit,
+        });
+      }
     });
+  } else {
+    const extraPagesCount = Number(payload.extraPagesCount || 0);
+    const pageUnit = extraPageTypePricing[payload.extraPagesType] || 0;
+    if (extraPagesCount > 0 && pageUnit > 0) {
+      lineItems.push({
+        name: `${payload.extraPagesType} extra pages`,
+        quantity: extraPagesCount,
+        unitPrice: pageUnit,
+        total: extraPagesCount * pageUnit,
+      });
+    }
   }
 
-  const extraFeaturesCount = Number(payload.extraFeaturesCount || 0);
-  const featureUnit = extraFeatureTypePricing[payload.extraFeaturesType] || 0;
-  if (extraFeaturesCount > 0 && featureUnit > 0) {
-    lineItems.push({
-      name: `${payload.extraFeaturesType} feature work`,
-      quantity: extraFeaturesCount,
-      unitPrice: featureUnit,
-      total: extraFeaturesCount * featureUnit,
+  const featureSelections = mergeInvoiceOptionSelections(payload.extraFeatureSelections);
+  if (featureSelections.length) {
+    featureSelections.forEach((entry) => {
+      const unit = extraFeatureTypePricing[entry.type] || 0;
+      if (entry.count > 0 && unit > 0) {
+        lineItems.push({
+          name: `${entry.type} feature work`,
+          quantity: entry.count,
+          unitPrice: unit,
+          total: entry.count * unit,
+        });
+      }
     });
+  } else {
+    const extraFeaturesCount = Number(payload.extraFeaturesCount || 0);
+    const featureUnit = extraFeatureTypePricing[payload.extraFeaturesType] || 0;
+    if (extraFeaturesCount > 0 && featureUnit > 0) {
+      lineItems.push({
+        name: `${payload.extraFeaturesType} feature work`,
+        quantity: extraFeaturesCount,
+        unitPrice: featureUnit,
+        total: extraFeaturesCount * featureUnit,
+      });
+    }
   }
 
   const additionalAmount = Number(payload.additionalAmountDollars || 0);
@@ -867,9 +982,15 @@ function bindAdminForms() {
   const invoiceForm = document.getElementById('invoice-form');
   const contractForm = document.getElementById('contract-form');
   const resetButton = document.getElementById('client-form-reset');
+  const extraPagesRows = document.getElementById('extra-pages-rows');
+  const extraFeaturesRows = document.getElementById('extra-features-rows');
+  const addExtraPageTypeButton = document.getElementById('add-extra-page-type');
+  const addExtraFeatureTypeButton = document.getElementById('add-extra-feature-type');
 
   const recalcInvoiceTotal = () => {
     const payload = Object.fromEntries(new FormData(invoiceForm).entries());
+    payload.extraPageSelections = collectInvoiceOptionSelections(extraPagesRows);
+    payload.extraFeatureSelections = collectInvoiceOptionSelections(extraFeaturesRows);
     const totals = calculateInvoiceTotals(payload);
     const manualOverrideEnabled = Boolean(invoiceForm.elements.manualTotalOverride.checked);
 
@@ -883,6 +1004,28 @@ function bindAdminForms() {
     const manualFinalTotal = parseMoneyInput(invoiceForm.elements.finalTotalOverride.value || totals.total);
     invoiceForm.elements.computedTotal.value = formatCurrency(manualFinalTotal);
     applyManualInvoiceTotalPreview(totals, manualFinalTotal);
+  };
+
+  const addInvoiceOptionRow = (kind) => {
+    const container = kind === 'pages' ? extraPagesRows : extraFeaturesRows;
+    if (!container) {
+      return;
+    }
+
+    container.appendChild(createInvoiceOptionRow(kind));
+    recalcInvoiceTotal();
+  };
+
+  const resetInvoiceOptionRows = () => {
+    if (extraPagesRows) {
+      extraPagesRows.innerHTML = '';
+      extraPagesRows.appendChild(createInvoiceOptionRow('pages'));
+    }
+
+    if (extraFeaturesRows) {
+      extraFeaturesRows.innerHTML = '';
+      extraFeaturesRows.appendChild(createInvoiceOptionRow('features'));
+    }
   };
 
   const toggleInvoiceManualOverride = () => {
@@ -907,16 +1050,51 @@ function bindAdminForms() {
   [
     'siteType',
     'maintenanceTier',
-    'extraPagesCount',
-    'extraPagesType',
-    'extraFeaturesCount',
-    'extraFeaturesType',
     'additionalAmountDollars',
     'taxDollars',
   ].forEach((field) => {
     invoiceForm.elements[field].addEventListener('input', recalcInvoiceTotal);
     invoiceForm.elements[field].addEventListener('change', recalcInvoiceTotal);
   });
+
+  [extraPagesRows, extraFeaturesRows].forEach((container) => {
+    if (!container) {
+      return;
+    }
+
+    container.addEventListener('input', recalcInvoiceTotal);
+    container.addEventListener('change', recalcInvoiceTotal);
+    container.addEventListener('click', (event) => {
+      const removeButton = event.target.closest('.remove-option-row');
+      if (!removeButton) {
+        return;
+      }
+
+      const row = removeButton.closest('.multi-option-row');
+      if (!row) {
+        return;
+      }
+
+      const parent = row.parentElement;
+      row.remove();
+
+      if (parent && !parent.querySelector('.multi-option-row')) {
+        parent.appendChild(createInvoiceOptionRow(parent.id === 'extra-pages-rows' ? 'pages' : 'features'));
+      }
+
+      recalcInvoiceTotal();
+    });
+  });
+
+  if (addExtraPageTypeButton) {
+    addExtraPageTypeButton.addEventListener('click', () => addInvoiceOptionRow('pages'));
+  }
+
+  if (addExtraFeatureTypeButton) {
+    addExtraFeatureTypeButton.addEventListener('click', () => addInvoiceOptionRow('features'));
+  }
+
+  resetInvoiceOptionRows();
 
   invoiceForm.elements.manualTotalOverride.addEventListener('change', toggleInvoiceManualOverride);
 
@@ -973,9 +1151,19 @@ function bindAdminForms() {
     setMessage(messageNode, 'Creating invoice...');
 
     const payload = Object.fromEntries(new FormData(invoiceForm).entries());
+    payload.extraPageSelections = collectInvoiceOptionSelections(extraPagesRows);
+    payload.extraFeatureSelections = collectInvoiceOptionSelections(extraFeaturesRows);
     const totals = calculateInvoiceTotals(payload);
     const manualOverrideEnabled = Boolean(payload.manualTotalOverride);
     const finalTotal = manualOverrideEnabled ? parseMoneyInput(payload.finalTotalOverride) : totals.total;
+
+    const extraPagesTotalCount = payload.extraPageSelections.reduce((sum, entry) => sum + entry.count, 0);
+    const extraFeaturesTotalCount = payload.extraFeatureSelections.reduce((sum, entry) => sum + entry.count, 0);
+
+    payload.extraPagesCount = extraPagesTotalCount;
+    payload.extraPagesType = payload.extraPageSelections.length === 1 ? payload.extraPageSelections[0].type : null;
+    payload.extraFeaturesCount = extraFeaturesTotalCount;
+    payload.extraFeaturesType = payload.extraFeatureSelections.length === 1 ? payload.extraFeatureSelections[0].type : null;
 
     payload.description = buildInvoiceDescription(payload);
     payload.lineItems = totals.lineItems;
@@ -1009,12 +1197,11 @@ function bindAdminForms() {
       invoiceForm.reset();
       invoiceForm.elements.additionalAmountDollars.value = '0.00';
       invoiceForm.elements.taxDollars.value = '0.00';
-      invoiceForm.elements.extraPagesCount.value = '0';
-      invoiceForm.elements.extraFeaturesCount.value = '0';
       invoiceForm.elements.computedTotal.value = '$0.00';
       invoiceForm.elements.manualTotalOverride.checked = false;
       invoiceForm.elements.finalTotalOverride.value = '';
       invoiceForm.elements.finalTotalOverride.disabled = true;
+      resetInvoiceOptionRows();
       setMessage(messageNode, result.warning ? `Invoice created. ${result.warning}` : 'Invoice created, PDF generated, and sent to client.');
       await loadAdminOverview();
       recalcInvoiceTotal();
@@ -1094,7 +1281,13 @@ function formatInvoiceDescription(value) {
 
 function buildInvoiceDescription(payload) {
   const details = String(payload.invoiceDescription || '').trim();
-  const labels = [payload.siteType, payload.maintenanceTier].filter(Boolean).join(' | ');
+  const optionSummaries = [
+    summarizeInvoiceOptionSelections('Pages', payload.extraPageSelections),
+    summarizeInvoiceOptionSelections('Features', payload.extraFeatureSelections),
+  ].filter(Boolean);
+  const labels = [payload.siteType, payload.maintenanceTier, ...optionSummaries]
+    .filter(Boolean)
+    .join(' | ');
 
   if (!details) {
     return labels || 'Website services';

@@ -118,44 +118,19 @@
               <option value="Tier 4 - Full Management">Tier 4 - Full Management ($499-$1,200/month)</option>
             </select>
           </label>
-          <div class="form-inline-pair">
-            <label>
-              <span>Extra Pages (Count)</span>
-              <input type="number" name="extraPagesCount" min="0" value="0" />
-            </label>
-            <label>
-              <span>Extra Pages Type</span>
-              <select name="extraPagesType">
-                <option value="">None</option>
-                <option value="Simple Page">Simple Page</option>
-                <option value="Service/Product Page">Service/Product Page</option>
-                <option value="Blog/Article Template">Blog/Article Template</option>
-                <option value="Landing Page">Landing Page</option>
-                <option value="Portfolio/Gallery Page">Portfolio/Gallery Page</option>
-                <option value="Custom Interactive Page">Custom Interactive Page</option>
-              </select>
-            </label>
+          <div class="multi-option-group" id="extra-pages-group">
+            <div class="multi-option-header">
+              <p>Extra Pages</p>
+              <button type="button" class="btn btn-secondary btn-small" id="add-extra-page-type">Add Page Type</button>
+            </div>
+            <div class="multi-option-rows" id="extra-pages-rows"></div>
           </div>
-          <div class="form-inline-pair">
-            <label>
-              <span>Extra Features (Count)</span>
-              <input type="number" name="extraFeaturesCount" min="0" value="0" />
-            </label>
-            <label>
-              <span>Extra Features Type</span>
-              <select name="extraFeaturesType">
-                <option value="">None</option>
-                <option value="Product Upload (Shopify)">Product Upload (Shopify)</option>
-                <option value="App Integrations">App Integrations</option>
-                <option value="Advanced Forms">Advanced Forms</option>
-                <option value="Custom Animations">Custom Animations</option>
-                <option value="SEO Setup">SEO Setup</option>
-                <option value="Booking System">Booking System</option>
-                <option value="Branding Package">Branding Package</option>
-                <option value="Membership/Login System">Membership/Login System</option>
-                <option value="Custom Dashboard">Custom Dashboard</option>
-              </select>
-            </label>
+          <div class="multi-option-group" id="extra-features-group">
+            <div class="multi-option-header">
+              <p>Extra Features</p>
+              <button type="button" class="btn btn-secondary btn-small" id="add-extra-feature-type">Add Feature Type</button>
+            </div>
+            <div class="multi-option-rows" id="extra-features-rows"></div>
           </div>
           <label>
             <span>Additional Custom Amount (USD)</span>

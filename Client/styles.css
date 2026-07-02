@@ -881,6 +881,45 @@ main {
   grid-column: 1 / -1;
 }
 
+.multi-option-group {
+  grid-column: 1 / -1;
+  display: grid;
+  gap: 0.7rem;
+  padding: 0.75rem;
+  border: 1px solid rgba(66, 165, 245, 0.22);
+  border-radius: 12px;
+  background: rgba(13, 26, 55, 0.45);
+}
+
+.multi-option-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+}
+
+.multi-option-header p {
+  margin: 0;
+  color: #dfe9ff;
+  font-weight: 600;
+}
+
+.multi-option-rows {
+  display: grid;
+  gap: 0.6rem;
+}
+
+.multi-option-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1.25fr) minmax(0, 0.75fr) auto;
+  gap: 0.7rem;
+  align-items: end;
+}
+
+.multi-option-row .remove-option-row {
+  align-self: end;
+}
+
 .invoice-pricing-preview {
   grid-column: 1 / -1;
   border: 1px solid rgba(66, 165, 245, 0.3);
@@ -1011,6 +1050,15 @@ main {
   }
 
   .admin-form .form-inline-pair {
+    grid-template-columns: 1fr;
+  }
+
+  .multi-option-header {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .multi-option-row {
     grid-template-columns: 1fr;
   }
 
