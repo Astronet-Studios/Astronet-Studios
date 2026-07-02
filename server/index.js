@@ -1743,6 +1743,16 @@ app.post('/api/webhooks/dropbox-sign', async (req, res) => {
   }
 });
 
+app.get('/api/webhooks/dropbox-sign', (req, res) => {
+  const challenge = req.query?.challenge;
+  if (typeof challenge === 'string' && challenge) {
+    res.type('text/plain').send(challenge);
+    return;
+  }
+
+  res.status(200).type('text/plain').send('Dropbox Sign webhook endpoint is online.');
+});
+
 app.get('*', (req, res) => {
   const requestPath = req.path.toLowerCase();
 
