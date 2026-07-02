@@ -780,6 +780,60 @@ async function fetchPandaDocDocumentStatus(documentId, apiKey) {
   return payload;
 }
 
+function extractPandaDocErrorMessage(payload, fallbackMessage) {
+  if (!payload || typeof payload !== 'object') {
+    return fallbackMessage;
+  }
+
+  if (typeof payload.info_message === 'string' && payload.info_message.trim()) {
+    return payload.info_message;
+  }
+
+  if (typeof payload.detail === 'string' && payload.detail.trim()) {
+    return payload.detail;
+  }
+
+  if (typeof payload.error === 'string' && payload.error.trim()) {
+    return payload.error;
+  }
+
+  if (Array.isArray(payload.errors) && payload.errors.length) {
+    const joined = payload.errors
+      .map((entry) => {
+        if (typeof entry === 'string') {
+          return entry;
+        }
+        if (entry && typeof entry === 'object') {
+          return entry.detail || entry.message || JSON.stringify(entry);
+        }
+        return null;
+      })
+      .filter(Boolean)
+      .join('; ');
+
+    if (joined) {
+      return joined;
+    }
+  }
+
+  return fallbackMessage;
+}
+
+function formatPandaDocFailure(response, payload, fallbackMessage) {
+  const baseMessage = extractPandaDocErrorMessage(payload, fallbackMessage);
+  const normalized = baseMessage.toLowerCase();
+
+  if (
+    normalized.includes('same organisation') ||
+    normalized.includes('same organization') ||
+    normalized.includes('same domain')
+  ) {
+    return `${baseMessage} PandaDoc Sandbox requires sender and recipient emails to be in the same email domain.`;
+  }
+
+  return `${baseMessage} (HTTP ${response.status})`;
+}
+
 async function sendContractForESign(contract, clientAccount, profile) {
   const apiKey = process.env.PANDADOC_API_KEY;
   if (!apiKey) {
@@ -799,7 +853,7 @@ async function sendContractForESign(contract, clientAccount, profile) {
       {
         email: profile.email,
         first_name: firstName || signerName,
-        last_name: lastNameParts.join(' ') || '-',
+        last_name: lastNameParts.join(' ') || 'Client',
       },
     ],
     metadata: {
@@ -825,7 +879,7 @@ async function sendContractForESign(contract, clientAccount, profile) {
 
   const createResult = await createResponse.json().catch(() => ({}));
   if (!createResponse.ok) {
-    const detail = createResult?.detail || createResult?.error || 'PandaDoc create document failed.';
+    const detail = formatPandaDocFailure(createResponse, createResult, 'PandaDoc create document failed.');
     throw new Error(detail);
   }
 
@@ -841,7 +895,18 @@ async function sendContractForESign(contract, clientAccount, profile) {
     documentStatus = statusResult?.status || documentStatus;
   }
 
-  if (documentStatus === 'document.draft') {
+  if (documentStatus !== 'document.draft') {
+    throw new Error(`PandaDoc document never reached draft status before send (current status: ${documentStatus}).`);
+  }
+
+  const sendBody = {
+    subject: `Please sign contract ${contract.contract_number}`,
+    message: `Please review and sign this contract for ${contract.project_title}.`,
+    silent: false,
+  };
+
+  let lastSendError = null;
+  for (let attempt = 0; attempt < 3; attempt += 1) {
     const sendResponse = await fetch(`${pandadocBaseUrl}/documents/${documentId}/send`, {
       method: 'POST',
       headers: {
@@ -849,20 +914,29 @@ async function sendContractForESign(contract, clientAccount, profile) {
         Accept: 'application/json',
         'Content-Type': 'application/json',
       },
-      body: JSON.stringify({
-        subject: `Please sign contract ${contract.contract_number}`,
-        message: `Please review and sign this contract for ${contract.project_title}.`,
-        silent: false,
-      }),
+      body: JSON.stringify(sendBody),
     });
 
     const sendPayload = await sendResponse.json().catch(() => ({}));
-    if (!sendResponse.ok) {
-      const detail = sendPayload?.detail || sendPayload?.error || 'PandaDoc send document failed.';
-      throw new Error(detail);
+    if (sendResponse.ok) {
+      documentStatus = sendPayload?.status || 'document.sent';
+      lastSendError = null;
+      break;
     }
 
-    documentStatus = sendPayload?.status || 'document.sent';
+    lastSendError = formatPandaDocFailure(sendResponse, sendPayload, 'PandaDoc send document failed.');
+
+    // PandaDoc can briefly lock a freshly-created document; wait then retry.
+    if (sendResponse.status === 409 || sendResponse.status === 423) {
+      await new Promise((resolve) => setTimeout(resolve, 1200));
+      continue;
+    }
+
+    break;
+  }
+
+  if (lastSendError) {
+    throw new Error(lastSendError);
   }
 
   return {
