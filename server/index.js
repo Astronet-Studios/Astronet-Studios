@@ -16,7 +16,6 @@ const publicAppUrl = process.env.PUBLIC_APP_URL || `http://localhost:${PORT}`;
 const squareBaseUrl = process.env.SQUARE_ENVIRONMENT === 'production'
   ? 'https://connect.squareup.com'
   : 'https://connect.squareupsandbox.com';
-const pandadocBaseUrl = 'https://api.pandadoc.com/public/v1';
 const maintenanceTierAmounts = {
   'Tier 1 - Basic Care': 49,
   'Tier 2 - Growth Care': 149,
@@ -58,41 +57,9 @@ const defaultContractTerms = [
   '6. Support: Post-launch support is available through active monthly maintenance plans.',
   '7. Termination: Either party may terminate with written notice; completed work remains billable.',
 ].join('\n');
-const contractDefaultCompanySignerName = process.env.CONTRACT_SIGNER_NAME || 'Astronet Studios';
-const contractEsignLayout = {
-  client: {
-    signature: {
-      page: 1,
-      offsetX: 122,
-      offsetY: 668,
-      width: 200,
-      height: 36,
-    },
-    date: {
-      page: 1,
-      offsetX: 122,
-      offsetY: 714,
-      width: 140,
-      height: 30,
-    },
-  },
-  company: {
-    signature: {
-      page: 1,
-      offsetX: 352,
-      offsetY: 668,
-      width: 200,
-      height: 36,
-    },
-    date: {
-      page: 1,
-      offsetX: 352,
-      offsetY: 714,
-      width: 140,
-      height: 30,
-    },
-  },
-};
+const contractBusinessName = process.env.CONTRACT_BUSINESS_NAME || 'Astronet Studios';
+const contractBusinessSigner = process.env.CONTRACT_SIGNER_NAME || 'Joseph Kadet';
+const contractBusinessRole = process.env.CONTRACT_SIGNER_ROLE || 'Owner|Partner';
 
 const hasSupabaseConfig = Boolean(
   process.env.SUPABASE_URL &&
@@ -109,11 +76,7 @@ const supabaseAdmin = hasSupabaseConfig
     })
   : null;
 
-app.use(express.json({
-  verify: (req, _res, buf) => {
-    req.rawBody = buf.toString('utf8');
-  },
-}));
+app.use(express.json());
 app.use(express.urlencoded({ extended: false }));
 app.use(express.static(clientDir));
 
@@ -184,19 +147,6 @@ function parseCount(value) {
 
 function toCurrencyAmount(value) {
   return Number(parseMoney(value, 0).toFixed(2));
-}
-
-function splitNameParts(name, fallbackFirstName = 'Signer') {
-  const normalized = String(name || '').trim();
-  if (!normalized) {
-    return { firstName: fallbackFirstName, lastName: 'User' };
-  }
-
-  const [firstName, ...lastNameParts] = normalized.split(/\s+/);
-  return {
-    firstName: firstName || fallbackFirstName,
-    lastName: lastNameParts.join(' ') || 'User',
-  };
 }
 
 function formatCurrency(value) {
@@ -389,6 +339,7 @@ function generateInvoicePdf(invoice, clientAccount, profile) {
 
 function generateContractPdf(contract, clientAccount, profile) {
   return buildPdfBuffer((doc) => {
+    const businessDate = new Date(contract.created_at || Date.now()).toLocaleDateString('en-US');
     doc.fontSize(22).fillColor('#0f172a').text('Astronet Studios Project Contract');
     doc.moveDown(0.4);
     doc.fontSize(10).fillColor('#334155').text(`Contract #: ${contract.contract_number}`);
@@ -421,43 +372,46 @@ function generateContractPdf(contract, clientAccount, profile) {
       lineGap: 3,
     });
 
-    const minRoomForSignatures = 150;
+    const minRoomForSignatures = 220;
     if (doc.y > doc.page.height - minRoomForSignatures) {
       doc.addPage();
     }
 
-    const drawSignatureBlock = ({ label, signature, date }) => {
-      const signatureLabelY = signature.offsetY + 10;
-      const signatureLineY = signatureLabelY + 12;
-      const dateLabelY = date.offsetY + 8;
-      const dateLineY = dateLabelY + 12;
+    const left = 72;
+    const right = 520;
+    const panelTop = doc.y + 8;
+    const panelHeight = 92;
+    doc.roundedRect(left, panelTop, right - left, panelHeight, 8)
+      .fillAndStroke('#f8fafc', '#cbd5e1');
 
-      doc.fontSize(10).fillColor('#0f172a').text(`${label} Signature:`, signature.offsetX, signatureLabelY);
-      doc.moveTo(signature.offsetX, signatureLineY)
-        .lineTo(signature.offsetX + signature.width, signatureLineY)
-        .lineWidth(1)
-        .strokeColor('#475569')
-        .stroke();
+    doc.fillColor('#0f172a').fontSize(11).text('Authorized Business Signature', left + 12, panelTop + 10);
+    doc.fillColor('#334155').fontSize(10).text(`Business Name: ${contractBusinessName}`, left + 12, panelTop + 30);
+    doc.text('Signature:', left + 12, panelTop + 46);
+    doc.font('Times-Italic').fontSize(16).fillColor('#0f172a').text(contractBusinessSigner, left + 84, panelTop + 41);
+    doc.font('Helvetica').fillColor('#334155').fontSize(10).text(`Printed Name: ${contractBusinessSigner}`, left + 12, panelTop + 66);
+    doc.text(`Role: ${contractBusinessRole}`, left + 240, panelTop + 66);
+    doc.text(`Date: ${businessDate}`, left + 390, panelTop + 66, { width: 118, align: 'right' });
 
-      doc.fillColor('#0f172a').text('Date:', date.offsetX, dateLabelY);
-      doc.moveTo(date.offsetX, dateLineY)
-        .lineTo(date.offsetX + date.width, dateLineY)
-        .lineWidth(1)
-        .strokeColor('#475569')
-        .stroke();
-    };
+    const clientTop = panelTop + panelHeight + 18;
+    doc.fillColor('#0f172a').fontSize(11).text('Client Signature (Please Sign And Send Back)', left, clientTop);
 
-    drawSignatureBlock({
-      label: 'Client',
-      signature: contractEsignLayout.client.signature,
-      date: contractEsignLayout.client.date,
-    });
+    const clientSigLabelY = clientTop + 20;
+    const clientSigLineY = clientSigLabelY + 13;
+    doc.fontSize(10).fillColor('#0f172a').text('Client Signature:', left, clientSigLabelY);
+    doc.moveTo(left + 95, clientSigLineY)
+      .lineTo(right - 12, clientSigLineY)
+      .lineWidth(1)
+      .strokeColor('#475569')
+      .stroke();
 
-    drawSignatureBlock({
-      label: 'Astronet Studios',
-      signature: contractEsignLayout.company.signature,
-      date: contractEsignLayout.company.date,
-    });
+    const clientDateLabelY = clientSigLabelY + 24;
+    const clientDateLineY = clientDateLabelY + 13;
+    doc.fillColor('#0f172a').text('Date:', left, clientDateLabelY);
+    doc.moveTo(left + 35, clientDateLineY)
+      .lineTo(left + 220, clientDateLineY)
+      .lineWidth(1)
+      .strokeColor('#475569')
+      .stroke();
   });
 }
 
@@ -781,413 +735,11 @@ async function sendContractEmail(contract, clientAccount, profile) {
   return sendEmailWithAttachment({
     to: profile.email,
     subject: `Contract ${contract.contract_number} from Astronet Studios`,
-    text: `Hello ${profile.full_name || profile.company_name || 'Client'},\n\nYour project contract is attached as a PDF. Please review and sign.\n\nThank you,\nAstronet Studios`,
-    html: `<p>Hello ${profile.full_name || profile.company_name || 'Client'},</p><p>Your project contract is attached as a PDF.</p><p>Please review and sign, then reply with confirmation.</p><p>Thank you,<br/>Astronet Studios</p>`,
+    text: `Hello ${profile.full_name || profile.company_name || 'Client'},\n\nYour project contract is attached as a PDF. Please review, sign, and send the signed contract back by replying to this email.\n\nThank you,\nAstronet Studios`,
+    html: `<p>Hello ${profile.full_name || profile.company_name || 'Client'},</p><p>Your project contract is attached as a PDF.</p><p>Please review, sign, and send the signed contract back by replying to this email.</p><p>Thank you,<br/>Astronet Studios</p>`,
     attachmentName: `${contract.contract_number}.pdf`,
     attachmentBuffer: pdfBuffer,
   });
-}
-
-function mapPandaDocStatusToEsignStatus(documentStatus, eventType) {
-  if (typeof documentStatus === 'string' && documentStatus.trim()) {
-    return documentStatus.replace(/^document\./, '');
-  }
-
-  if (typeof eventType === 'string' && eventType.trim()) {
-    return eventType;
-  }
-
-  return 'unknown';
-}
-
-function mapPandaDocStatusToContractState(documentStatus, eventType) {
-  const normalizedStatus = String(documentStatus || '').toLowerCase();
-  const normalizedEvent = String(eventType || '').toLowerCase();
-
-  if (normalizedStatus === 'document.completed' || normalizedEvent === 'recipient_completed') {
-    return 'signed';
-  }
-
-  if (normalizedStatus === 'document.declined' || normalizedStatus === 'document.voided') {
-    return 'cancelled';
-  }
-
-  if (normalizedStatus === 'document.sent' || normalizedStatus === 'document.viewed') {
-    return 'sent';
-  }
-
-  return null;
-}
-
-function verifyPandaDocWebhook(req) {
-  const sharedKey = process.env.PANDADOC_WEBHOOK_SHARED_KEY;
-  if (!sharedKey) {
-    return true;
-  }
-
-  const signatureHeader = req.headers['pandadoc-signature'] || req.headers['x-pandadoc-signature'];
-  if (!signatureHeader) {
-    return false;
-  }
-
-  const providedSignature = String(signatureHeader).replace(/^sha256=/i, '').trim();
-  const rawBody = req.rawBody || JSON.stringify(req.body || {});
-  const expectedSignature = crypto
-    .createHmac('sha256', sharedKey)
-    .update(rawBody)
-    .digest('hex');
-
-  try {
-    return crypto.timingSafeEqual(Buffer.from(providedSignature), Buffer.from(expectedSignature));
-  } catch {
-    return false;
-  }
-}
-
-async function fetchPandaDocDocumentStatus(documentId, apiKey) {
-  const response = await fetch(`${pandadocBaseUrl}/documents/${documentId}`, {
-    method: 'GET',
-    headers: {
-      Authorization: `API-Key ${apiKey}`,
-      Accept: 'application/json',
-    },
-  });
-
-  const payload = await response.json().catch(() => ({}));
-  if (!response.ok) {
-    const detail = payload?.detail || payload?.error || 'PandaDoc document status request failed.';
-    throw new Error(detail);
-  }
-
-  return payload;
-}
-
-async function fetchPandaDocDocumentDetails(documentId, apiKey) {
-  const response = await fetch(`${pandadocBaseUrl}/documents/${documentId}/details`, {
-    method: 'GET',
-    headers: {
-      Authorization: `API-Key ${apiKey}`,
-      Accept: 'application/json',
-    },
-  });
-
-  const payload = await response.json().catch(() => ({}));
-  if (!response.ok) {
-    const detail = extractPandaDocErrorMessage(payload, 'PandaDoc document details request failed.');
-    throw new Error(`${detail} (HTTP ${response.status})`);
-  }
-
-  return payload;
-}
-
-async function fetchPandaDocDocumentFields(documentId, apiKey) {
-  const response = await fetch(`${pandadocBaseUrl}/documents/${documentId}/fields`, {
-    method: 'GET',
-    headers: {
-      Authorization: `API-Key ${apiKey}`,
-      Accept: 'application/json',
-    },
-  });
-
-  const payload = await response.json().catch(() => ({}));
-  if (!response.ok) {
-    const detail = extractPandaDocErrorMessage(payload, 'PandaDoc document fields request failed.');
-    throw new Error(`${detail} (HTTP ${response.status})`);
-  }
-
-  return payload?.fields || [];
-}
-
-async function ensurePandaDocSignatureField(documentId, apiKey, signers) {
-  const details = await fetchPandaDocDocumentDetails(documentId, apiKey);
-  const recipients = details?.recipients || [];
-
-  const fields = await fetchPandaDocDocumentFields(documentId, apiKey);
-
-  const fieldsToCreate = [];
-
-  for (let index = 0; index < signers.length; index += 1) {
-    const signer = signers[index];
-    const matchingRecipient = recipients.find((entry) =>
-      String(entry?.email || '').toLowerCase() === String(signer.email || '').toLowerCase()
-    );
-    const recipient = matchingRecipient || recipients[index] || null;
-
-    if (!recipient?.id) {
-      throw new Error(`PandaDoc recipient was not found for ${signer.roleLabel}.`);
-    }
-
-    const hasSignatureField = fields.some((field) =>
-      field?.type === 'signature' && field?.assigned_to?.id === recipient.id
-    );
-    const hasDateField = fields.some((field) =>
-      field?.type === 'date' && field?.assigned_to?.id === recipient.id
-    );
-
-    if (!hasSignatureField) {
-      fieldsToCreate.push({
-        type: 'signature',
-        title: `${signer.roleLabel} Signature`,
-        assigned_to: recipient.id,
-        layout: {
-          page: signer.layout.signature.page,
-          position: {
-            offset_x: signer.layout.signature.offsetX,
-            offset_y: signer.layout.signature.offsetY,
-            anchor_point: 'topleft',
-          },
-          style: {
-            width: signer.layout.signature.width,
-            height: signer.layout.signature.height,
-          },
-        },
-      });
-    }
-
-    if (!hasDateField) {
-      fieldsToCreate.push({
-        type: 'date',
-        title: `${signer.roleLabel} Date`,
-        assigned_to: recipient.id,
-        layout: {
-          page: signer.layout.date.page,
-          position: {
-            offset_x: signer.layout.date.offsetX,
-            offset_y: signer.layout.date.offsetY,
-            anchor_point: 'topleft',
-          },
-          style: {
-            width: signer.layout.date.width,
-            height: signer.layout.date.height,
-          },
-        },
-      });
-    }
-  }
-
-  if (!fieldsToCreate.length) {
-    return;
-  }
-
-  const createFieldPayload = {
-    fields: fieldsToCreate,
-  };
-
-  const createFieldResponse = await fetch(`${pandadocBaseUrl}/documents/${documentId}/fields`, {
-    method: 'POST',
-    headers: {
-      Authorization: `API-Key ${apiKey}`,
-      Accept: 'application/json',
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify(createFieldPayload),
-  });
-
-  const createFieldResult = await createFieldResponse.json().catch(() => ({}));
-  if (!createFieldResponse.ok) {
-    const detail = formatPandaDocFailure(createFieldResponse, createFieldResult, 'Unable to add PandaDoc signature field.');
-    throw new Error(detail);
-  }
-}
-
-function extractPandaDocErrorMessage(payload, fallbackMessage) {
-  if (!payload || typeof payload !== 'object') {
-    return fallbackMessage;
-  }
-
-  if (typeof payload.info_message === 'string' && payload.info_message.trim()) {
-    return payload.info_message;
-  }
-
-  if (typeof payload.detail === 'string' && payload.detail.trim()) {
-    return payload.detail;
-  }
-
-  if (typeof payload.error === 'string' && payload.error.trim()) {
-    return payload.error;
-  }
-
-  if (Array.isArray(payload.errors) && payload.errors.length) {
-    const joined = payload.errors
-      .map((entry) => {
-        if (typeof entry === 'string') {
-          return entry;
-        }
-        if (entry && typeof entry === 'object') {
-          return entry.detail || entry.message || JSON.stringify(entry);
-        }
-        return null;
-      })
-      .filter(Boolean)
-      .join('; ');
-
-    if (joined) {
-      return joined;
-    }
-  }
-
-  return fallbackMessage;
-}
-
-function formatPandaDocFailure(response, payload, fallbackMessage) {
-  const baseMessage = extractPandaDocErrorMessage(payload, fallbackMessage);
-  const normalized = baseMessage.toLowerCase();
-
-  if (
-    normalized.includes('same organisation') ||
-    normalized.includes('same organization') ||
-    normalized.includes('same domain')
-  ) {
-    return `${baseMessage} PandaDoc Sandbox requires sender and recipient emails to be in the same email domain.`;
-  }
-
-  return `${baseMessage} (HTTP ${response.status})`;
-}
-
-async function sendContractForESign(contract, clientAccount, profile) {
-  const apiKey = process.env.PANDADOC_API_KEY;
-  if (!apiKey) {
-    return {
-      warning: 'PandaDoc is not configured. Contract was emailed as a PDF instead.',
-      signatureRequestId: null,
-      providerStatus: null,
-    };
-  }
-
-  const pdfBuffer = await generateContractPdf(contract, clientAccount, profile);
-  const companySignerEmail = (
-    process.env.CONTRACT_SIGNER_EMAIL ||
-    process.env.ADMIN_EMAIL ||
-    process.env.SMTP_USER ||
-    ''
-  ).trim();
-
-  if (!companySignerEmail) {
-    throw new Error('Set CONTRACT_SIGNER_EMAIL (or ADMIN_EMAIL) to enable two-party contract signatures.');
-  }
-
-  const clientSignerName = profile.full_name || profile.company_name || profile.email || 'Client';
-  const companySignerName = process.env.CONTRACT_SIGNER_NAME || contractDefaultCompanySignerName;
-  const clientNameParts = splitNameParts(clientSignerName, 'Client');
-  const companyNameParts = splitNameParts(companySignerName, 'Astronet');
-
-  const signers = [
-    {
-      roleLabel: 'Astronet Studios',
-      email: companySignerEmail,
-      first_name: companyNameParts.firstName,
-      last_name: companyNameParts.lastName,
-      signing_order: 1,
-      layout: contractEsignLayout.company,
-    },
-    {
-      roleLabel: 'Client',
-      email: profile.email,
-      first_name: clientNameParts.firstName,
-      last_name: clientNameParts.lastName,
-      signing_order: 2,
-      layout: contractEsignLayout.client,
-    },
-  ];
-
-  const createPayload = {
-    name: `Astronet Contract ${contract.contract_number}`,
-    recipients: signers.map((signer) => ({
-      email: signer.email,
-      first_name: signer.first_name,
-      last_name: signer.last_name,
-      signing_order: signer.signing_order,
-    })),
-    metadata: {
-      contract_id: contract.id,
-      contract_number: contract.contract_number,
-      client_id: contract.client_id,
-    },
-    parse_form_fields: true,
-  };
-
-  const form = new FormData();
-  form.append('file', new Blob([pdfBuffer], { type: 'application/pdf' }), `${contract.contract_number}.pdf`);
-  form.append('data', JSON.stringify(createPayload));
-
-  const createResponse = await fetch(`${pandadocBaseUrl}/documents?upload`, {
-    method: 'POST',
-    headers: {
-      Authorization: `API-Key ${apiKey}`,
-      Accept: 'application/json',
-    },
-    body: form,
-  });
-
-  const createResult = await createResponse.json().catch(() => ({}));
-  if (!createResponse.ok) {
-    const detail = formatPandaDocFailure(createResponse, createResult, 'PandaDoc create document failed.');
-    throw new Error(detail);
-  }
-
-  const documentId = createResult?.id;
-  if (!documentId) {
-    throw new Error('PandaDoc did not return a document ID.');
-  }
-
-  let documentStatus = createResult?.status || 'document.uploaded';
-  for (let attempt = 0; attempt < 8 && documentStatus === 'document.uploaded'; attempt += 1) {
-    await new Promise((resolve) => setTimeout(resolve, 1200));
-    const statusResult = await fetchPandaDocDocumentStatus(documentId, apiKey);
-    documentStatus = statusResult?.status || documentStatus;
-  }
-
-  if (documentStatus !== 'document.draft') {
-    throw new Error(`PandaDoc document never reached draft status before send (current status: ${documentStatus}).`);
-  }
-
-  await ensurePandaDocSignatureField(documentId, apiKey, signers);
-
-  const sendBody = {
-    subject: `Please sign contract ${contract.contract_number}`,
-    message: `Please review and sign this contract for ${contract.project_title}.`,
-    silent: false,
-  };
-
-  let lastSendError = null;
-  for (let attempt = 0; attempt < 3; attempt += 1) {
-    const sendResponse = await fetch(`${pandadocBaseUrl}/documents/${documentId}/send`, {
-      method: 'POST',
-      headers: {
-        Authorization: `API-Key ${apiKey}`,
-        Accept: 'application/json',
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify(sendBody),
-    });
-
-    const sendPayload = await sendResponse.json().catch(() => ({}));
-    if (sendResponse.ok) {
-      documentStatus = sendPayload?.status || 'document.sent';
-      lastSendError = null;
-      break;
-    }
-
-    lastSendError = formatPandaDocFailure(sendResponse, sendPayload, 'PandaDoc send document failed.');
-
-    // PandaDoc can briefly lock a freshly-created document; wait then retry.
-    if (sendResponse.status === 409 || sendResponse.status === 423) {
-      await new Promise((resolve) => setTimeout(resolve, 1200));
-      continue;
-    }
-
-    break;
-  }
-
-  if (lastSendError) {
-    throw new Error(lastSendError);
-  }
-
-  return {
-    warning: null,
-    signatureRequestId: documentId,
-    providerStatus: mapPandaDocStatusToEsignStatus(documentStatus),
-  };
 }
 
 async function enrichClients(clientAccounts) {
@@ -1870,7 +1422,7 @@ app.post('/api/admin/contracts', authMiddleware, requireAdmin, async (req, res) 
       remaining_balance_dollars: remainingBalance,
       terms_text: req.body.termsText || defaultContractTerms,
       status: req.body.status || 'sent',
-      esign_provider: process.env.PANDADOC_API_KEY ? 'pandadoc' : null,
+      esign_provider: null,
       esign_status: null,
     };
 
@@ -1886,54 +1438,12 @@ app.post('/api/admin/contracts', authMiddleware, requireAdmin, async (req, res) 
 
     const warnings = [];
     try {
-      const esignResult = await sendContractForESign(contract, account, profile);
-
-      if (esignResult.signatureRequestId) {
-        const { data: updatedContract, error: updateError } = await supabaseAdmin
-          .from('contracts')
-          .update({
-            esign_provider: 'pandadoc',
-            esign_signature_request_id: esignResult.signatureRequestId,
-            esign_status: esignResult.providerStatus,
-            esign_last_event_at: new Date().toISOString(),
-          })
-          .eq('id', contract.id)
-          .select('*')
-          .single();
-
-        if (updateError) {
-          throw updateError;
-        }
-
-        if (esignResult.warning) {
-          warnings.push(esignResult.warning);
-        }
-
-        res.status(201).json({
-          contract: updatedContract,
-          warning: warnings.length ? warnings.join(' ') : null,
-        });
-        return;
-      }
-
-      if (esignResult.warning) {
-        warnings.push(esignResult.warning);
-      }
-
       const emailWarning = await sendContractEmail(contract, account, profile);
       if (emailWarning) {
         warnings.push(emailWarning);
       }
     } catch (emailError) {
-      warnings.push(`E-sign dispatch failed: ${normalizeError(emailError, 'Unknown e-sign error.')}`);
-      try {
-        const fallbackEmailWarning = await sendContractEmail(contract, account, profile);
-        if (fallbackEmailWarning) {
-          warnings.push(fallbackEmailWarning);
-        }
-      } catch (fallbackError) {
-        warnings.push(`Contract email fallback failed: ${normalizeError(fallbackError, 'Unknown email error.')}`);
-      }
+      warnings.push(`Contract email failed: ${normalizeError(emailError, 'Unknown email error.')}`);
     }
 
     res.status(201).json({
@@ -1995,53 +1505,10 @@ app.get('/api/contracts/:contractId/pdf', authMiddleware, async (req, res) => {
 
 app.get('/api/contracts/:contractId/executed-pdf', authMiddleware, async (req, res) => {
   try {
-    const contract = await resolveContractByIdForUser(req.params.contractId, req.user);
-
-    if (!contract.esign_signature_request_id) {
-      res.status(404).json({ error: 'No e-signature request is linked to this contract yet.' });
-      return;
-    }
-
-    const apiKey = process.env.PANDADOC_API_KEY;
-    if (!apiKey) {
-      res.status(500).json({ error: 'PandaDoc is not configured on the server.' });
-      return;
-    }
-
-    let response = await fetch(`${pandadocBaseUrl}/documents/${contract.esign_signature_request_id}/download-protected`, {
-      method: 'GET',
-      headers: {
-        Authorization: `API-Key ${apiKey}`,
-        Accept: 'application/pdf',
-      },
+    await resolveContractByIdForUser(req.params.contractId, req.user);
+    res.status(404).json({
+      error: 'Executed contract file is not hosted by the app in manual-sign mode. Ask the client to return the signed PDF via email.',
     });
-
-    // Sandbox keys cannot access download-protected, so fall back to download.
-    if (response.status === 401) {
-      response = await fetch(`${pandadocBaseUrl}/documents/${contract.esign_signature_request_id}/download`, {
-        method: 'GET',
-        headers: {
-          Authorization: `API-Key ${apiKey}`,
-          Accept: 'application/pdf',
-        },
-      });
-    }
-
-    if (response.status === 202) {
-      res.status(409).json({ error: 'Signed PDF is still being prepared. Please retry in a moment.' });
-      return;
-    }
-
-    if (!response.ok) {
-      const errorPayload = await response.json().catch(() => ({}));
-      const detail = errorPayload?.detail || errorPayload?.error || 'Unable to fetch executed contract from PandaDoc.';
-      throw new Error(detail);
-    }
-
-    const pdfBuffer = Buffer.from(await response.arrayBuffer());
-    res.setHeader('Content-Type', 'application/pdf');
-    res.setHeader('Content-Disposition', `inline; filename="${contract.contract_number}-executed.pdf"`);
-    res.send(pdfBuffer);
   } catch (error) {
     res.status(500).json({ error: normalizeError(error, 'Unable to render executed contract PDF.') });
   }
@@ -2079,68 +1546,6 @@ app.get('/api/admin/requests', authMiddleware, requireAdmin, async (_req, res) =
 
 app.get('/health', (_req, res) => {
   res.json({ ok: true });
-});
-
-app.post('/api/webhooks/pandadoc', async (req, res) => {
-  const acknowledge = () => res.status(200).send('PandaDoc webhook received');
-
-  try {
-    if (!verifyPandaDocWebhook(req)) {
-      res.status(401).json({ error: 'Invalid PandaDoc webhook signature.' });
-      return;
-    }
-
-    const payload = req.body || {};
-    const eventType = payload.event_type || payload.type || payload.event || null;
-    const documentInfo = payload?.data?.document || payload?.data || payload?.document || {};
-    const signatureRequestId = documentInfo.id || payload.document_id || null;
-
-    if (!signatureRequestId) {
-      acknowledge();
-      return;
-    }
-
-    const documentStatus = documentInfo.status || payload?.data?.status || payload.status || null;
-    const contractState = mapPandaDocStatusToContractState(documentStatus, eventType);
-
-    const updatePayload = {
-      esign_status: mapPandaDocStatusToEsignStatus(documentStatus, eventType),
-      esign_last_event_at: new Date().toISOString(),
-    };
-
-    if (contractState) {
-      updatePayload.status = contractState;
-    }
-
-    if (contractState === 'signed') {
-      updatePayload.signed_at = new Date().toISOString();
-    }
-
-    const contractMetadataId = payload?.data?.metadata?.contract_id;
-    let updateQuery = supabaseAdmin
-      .from('contracts')
-      .update(updatePayload)
-      .eq('esign_signature_request_id', signatureRequestId);
-
-    if (contractMetadataId) {
-      updateQuery = updateQuery.eq('id', contractMetadataId);
-    }
-
-    const { error } = await updateQuery;
-
-    if (error) {
-      throw error;
-    }
-
-    acknowledge();
-  } catch (error) {
-    console.error('PandaDoc webhook error:', error);
-    acknowledge();
-  }
-});
-
-app.get('/api/webhooks/pandadoc', (_req, res) => {
-  res.status(200).type('text/plain').send('PandaDoc webhook endpoint is online.');
 });
 
 app.get('*', (req, res) => {
