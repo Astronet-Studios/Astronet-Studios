@@ -16,7 +16,7 @@ const publicAppUrl = process.env.PUBLIC_APP_URL || `http://localhost:${PORT}`;
 const squareBaseUrl = process.env.SQUARE_ENVIRONMENT === 'production'
   ? 'https://connect.squareup.com'
   : 'https://connect.squareupsandbox.com';
-const dropboxSignBaseUrl = 'https://api.hellosign.com/v3';
+const pandadocBaseUrl = 'https://api.pandadoc.com/public/v1';
 const maintenanceTierAmounts = {
   'Tier 1 - Basic Care': 49,
   'Tier 2 - Growth Care': 149,
@@ -74,7 +74,11 @@ const supabaseAdmin = hasSupabaseConfig
     })
   : null;
 
-app.use(express.json());
+app.use(express.json({
+  verify: (req, _res, buf) => {
+    req.rawBody = buf.toString('utf8');
+  },
+}));
 app.use(express.urlencoded({ extended: false }));
 app.use(express.static(clientDir));
 
@@ -702,112 +706,170 @@ async function sendContractEmail(contract, clientAccount, profile) {
   });
 }
 
-function mapDropboxSignEventToStatus(eventType) {
-  switch (eventType) {
-    case 'signature_request_all_signed':
-      return 'completed';
-    case 'signature_request_declined':
-      return 'declined';
-    case 'signature_request_canceled':
-      return 'canceled';
-    case 'signature_request_sent':
-      return 'sent';
-    case 'signature_request_viewed':
-      return 'viewed';
-    case 'signature_request_signed':
-      return 'partially_signed';
-    default:
-      return eventType || 'unknown';
+function mapPandaDocStatusToEsignStatus(documentStatus, eventType) {
+  if (typeof documentStatus === 'string' && documentStatus.trim()) {
+    return documentStatus.replace(/^document\./, '');
   }
+
+  if (typeof eventType === 'string' && eventType.trim()) {
+    return eventType;
+  }
+
+  return 'unknown';
 }
 
-function verifyDropboxSignEvent(payload) {
-  const eventTime = payload?.event?.event_time;
-  const eventHash = payload?.event?.event_hash;
-  const apiKey = process.env.DROPBOX_SIGN_API_KEY;
+function mapPandaDocStatusToContractState(documentStatus, eventType) {
+  const normalizedStatus = String(documentStatus || '').toLowerCase();
+  const normalizedEvent = String(eventType || '').toLowerCase();
 
-  if (!apiKey || !eventTime || !eventHash) {
+  if (normalizedStatus === 'document.completed' || normalizedEvent === 'recipient_completed') {
+    return 'signed';
+  }
+
+  if (normalizedStatus === 'document.declined' || normalizedStatus === 'document.voided') {
+    return 'cancelled';
+  }
+
+  if (normalizedStatus === 'document.sent' || normalizedStatus === 'document.viewed') {
+    return 'sent';
+  }
+
+  return null;
+}
+
+function verifyPandaDocWebhook(req) {
+  const sharedKey = process.env.PANDADOC_WEBHOOK_SHARED_KEY;
+  if (!sharedKey) {
     return true;
   }
 
-  const expectedHash = crypto
-    .createHash('sha256')
-    .update(`${apiKey}${eventTime}`)
+  const signatureHeader = req.headers['pandadoc-signature'] || req.headers['x-pandadoc-signature'];
+  if (!signatureHeader) {
+    return false;
+  }
+
+  const providedSignature = String(signatureHeader).replace(/^sha256=/i, '').trim();
+  const rawBody = req.rawBody || JSON.stringify(req.body || {});
+  const expectedSignature = crypto
+    .createHmac('sha256', sharedKey)
+    .update(rawBody)
     .digest('hex');
 
-  return expectedHash === eventHash;
+  try {
+    return crypto.timingSafeEqual(Buffer.from(providedSignature), Buffer.from(expectedSignature));
+  } catch {
+    return false;
+  }
+}
+
+async function fetchPandaDocDocumentStatus(documentId, apiKey) {
+  const response = await fetch(`${pandadocBaseUrl}/documents/${documentId}`, {
+    method: 'GET',
+    headers: {
+      Authorization: `API-Key ${apiKey}`,
+      Accept: 'application/json',
+    },
+  });
+
+  const payload = await response.json().catch(() => ({}));
+  if (!response.ok) {
+    const detail = payload?.detail || payload?.error || 'PandaDoc document status request failed.';
+    throw new Error(detail);
+  }
+
+  return payload;
 }
 
 async function sendContractForESign(contract, clientAccount, profile) {
-  const apiKey = process.env.DROPBOX_SIGN_API_KEY;
+  const apiKey = process.env.PANDADOC_API_KEY;
   if (!apiKey) {
     return {
-      warning: 'Dropbox Sign is not configured. Contract was emailed as a PDF instead.',
+      warning: 'PandaDoc is not configured. Contract was emailed as a PDF instead.',
       signatureRequestId: null,
       providerStatus: null,
     };
   }
 
   const pdfBuffer = await generateContractPdf(contract, clientAccount, profile);
-  const form = new FormData();
-  form.append('title', `Astronet Contract ${contract.contract_number}`);
-  form.append('subject', `Please sign contract ${contract.contract_number}`);
-  form.append('message', `Please review and sign this contract for ${contract.project_title}.`);
-  form.append('signers[0][email_address]', profile.email);
-  form.append('signers[0][name]', profile.full_name || profile.company_name || profile.email || 'Client');
-  form.append('metadata[contract_id]', contract.id);
-  form.append('metadata[contract_number]', contract.contract_number);
-  form.append('metadata[client_id]', contract.client_id);
-  form.append('test_mode', String(process.env.DROPBOX_SIGN_TEST_MODE || '1'));
-  form.append(
-    'files[0]',
-    new Blob([pdfBuffer], { type: 'application/pdf' }),
-    `${contract.contract_number}.pdf`
-  );
+  const signerName = profile.full_name || profile.company_name || profile.email || 'Client';
+  const [firstName, ...lastNameParts] = signerName.split(' ');
+  const createPayload = {
+    name: `Astronet Contract ${contract.contract_number}`,
+    recipients: [
+      {
+        email: profile.email,
+        first_name: firstName || signerName,
+        last_name: lastNameParts.join(' ') || '-',
+      },
+    ],
+    metadata: {
+      contract_id: contract.id,
+      contract_number: contract.contract_number,
+      client_id: contract.client_id,
+    },
+    parse_form_fields: true,
+  };
 
-  const authHeader = Buffer.from(`${apiKey}:`).toString('base64');
-  const response = await fetch(`${dropboxSignBaseUrl}/signature_request/send`, {
+  const form = new FormData();
+  form.append('file', new Blob([pdfBuffer], { type: 'application/pdf' }), `${contract.contract_number}.pdf`);
+  form.append('data', JSON.stringify(createPayload));
+
+  const createResponse = await fetch(`${pandadocBaseUrl}/documents?upload`, {
     method: 'POST',
     headers: {
-      Authorization: `Basic ${authHeader}`,
+      Authorization: `API-Key ${apiKey}`,
+      Accept: 'application/json',
     },
     body: form,
   });
 
-  const payload = await response.json();
-  if (!response.ok) {
-    const detail = payload.error?.error_msg || payload.error_name || 'Dropbox Sign request failed.';
+  const createResult = await createResponse.json().catch(() => ({}));
+  if (!createResponse.ok) {
+    const detail = createResult?.detail || createResult?.error || 'PandaDoc create document failed.';
     throw new Error(detail);
   }
 
-  const signatureRequest = payload.signature_request || {};
+  const documentId = createResult?.id;
+  if (!documentId) {
+    throw new Error('PandaDoc did not return a document ID.');
+  }
+
+  let documentStatus = createResult?.status || 'document.uploaded';
+  for (let attempt = 0; attempt < 8 && documentStatus === 'document.uploaded'; attempt += 1) {
+    await new Promise((resolve) => setTimeout(resolve, 1200));
+    const statusResult = await fetchPandaDocDocumentStatus(documentId, apiKey);
+    documentStatus = statusResult?.status || documentStatus;
+  }
+
+  if (documentStatus === 'document.draft') {
+    const sendResponse = await fetch(`${pandadocBaseUrl}/documents/${documentId}/send`, {
+      method: 'POST',
+      headers: {
+        Authorization: `API-Key ${apiKey}`,
+        Accept: 'application/json',
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        subject: `Please sign contract ${contract.contract_number}`,
+        message: `Please review and sign this contract for ${contract.project_title}.`,
+        silent: false,
+      }),
+    });
+
+    const sendPayload = await sendResponse.json().catch(() => ({}));
+    if (!sendResponse.ok) {
+      const detail = sendPayload?.detail || sendPayload?.error || 'PandaDoc send document failed.';
+      throw new Error(detail);
+    }
+
+    documentStatus = sendPayload?.status || 'document.sent';
+  }
+
   return {
     warning: null,
-    signatureRequestId: signatureRequest.signature_request_id || null,
-    providerStatus: signatureRequest.is_complete ? 'completed' : 'sent',
+    signatureRequestId: documentId,
+    providerStatus: mapPandaDocStatusToEsignStatus(documentStatus),
   };
-}
-
-async function fetchDropboxSignFilesInfo(signatureRequestId) {
-  const apiKey = process.env.DROPBOX_SIGN_API_KEY;
-  if (!apiKey || !signatureRequestId) {
-    return null;
-  }
-
-  const authHeader = Buffer.from(`${apiKey}:`).toString('base64');
-  const response = await fetch(`${dropboxSignBaseUrl}/signature_request/files_as_data_uri/${signatureRequestId}`, {
-    method: 'GET',
-    headers: {
-      Authorization: `Basic ${authHeader}`,
-    },
-  });
-
-  const payload = await response.json();
-  if (!response.ok) {
-    return null;
-  }
-
-  return payload?.signature_request_files?.files_url || null;
 }
 
 async function enrichClients(clientAccounts) {
@@ -1490,7 +1552,7 @@ app.post('/api/admin/contracts', authMiddleware, requireAdmin, async (req, res) 
       remaining_balance_dollars: remainingBalance,
       terms_text: req.body.termsText || defaultContractTerms,
       status: req.body.status || 'sent',
-      esign_provider: process.env.DROPBOX_SIGN_API_KEY ? 'dropbox_sign' : null,
+      esign_provider: process.env.PANDADOC_API_KEY ? 'pandadoc' : null,
       esign_status: null,
     };
 
@@ -1512,7 +1574,7 @@ app.post('/api/admin/contracts', authMiddleware, requireAdmin, async (req, res) 
         const { data: updatedContract, error: updateError } = await supabaseAdmin
           .from('contracts')
           .update({
-            esign_provider: 'dropbox_sign',
+            esign_provider: 'pandadoc',
             esign_signature_request_id: esignResult.signatureRequestId,
             esign_status: esignResult.providerStatus,
             esign_last_event_at: new Date().toISOString(),
@@ -1622,23 +1684,39 @@ app.get('/api/contracts/:contractId/executed-pdf', authMiddleware, async (req, r
       return;
     }
 
-    const apiKey = process.env.DROPBOX_SIGN_API_KEY;
+    const apiKey = process.env.PANDADOC_API_KEY;
     if (!apiKey) {
-      res.status(500).json({ error: 'Dropbox Sign is not configured on the server.' });
+      res.status(500).json({ error: 'PandaDoc is not configured on the server.' });
       return;
     }
 
-    const authHeader = Buffer.from(`${apiKey}:`).toString('base64');
-    const response = await fetch(`${dropboxSignBaseUrl}/signature_request/files/${contract.esign_signature_request_id}?file_type=pdf`, {
+    let response = await fetch(`${pandadocBaseUrl}/documents/${contract.esign_signature_request_id}/download-protected`, {
       method: 'GET',
       headers: {
-        Authorization: `Basic ${authHeader}`,
+        Authorization: `API-Key ${apiKey}`,
+        Accept: 'application/pdf',
       },
     });
 
+    // Sandbox keys cannot access download-protected, so fall back to download.
+    if (response.status === 401) {
+      response = await fetch(`${pandadocBaseUrl}/documents/${contract.esign_signature_request_id}/download`, {
+        method: 'GET',
+        headers: {
+          Authorization: `API-Key ${apiKey}`,
+          Accept: 'application/pdf',
+        },
+      });
+    }
+
+    if (response.status === 202) {
+      res.status(409).json({ error: 'Signed PDF is still being prepared. Please retry in a moment.' });
+      return;
+    }
+
     if (!response.ok) {
       const errorPayload = await response.json().catch(() => ({}));
-      const detail = errorPayload?.error?.error_msg || 'Unable to fetch executed contract from Dropbox Sign.';
+      const detail = errorPayload?.detail || errorPayload?.error || 'Unable to fetch executed contract from PandaDoc.';
       throw new Error(detail);
     }
 
@@ -1685,52 +1763,52 @@ app.get('/health', (_req, res) => {
   res.json({ ok: true });
 });
 
-app.post('/api/webhooks/dropbox-sign', async (req, res) => {
-  const acknowledge = () => res.status(200).send('Hello API Event Received');
+app.post('/api/webhooks/pandadoc', async (req, res) => {
+  const acknowledge = () => res.status(200).send('PandaDoc webhook received');
 
   try {
-    const payload = typeof req.body?.json === 'string' ? JSON.parse(req.body.json) : req.body;
-    if (!payload?.event) {
-      acknowledge();
+    if (!verifyPandaDocWebhook(req)) {
+      res.status(401).json({ error: 'Invalid PandaDoc webhook signature.' });
       return;
     }
 
-    if (!verifyDropboxSignEvent(payload)) {
-      res.status(401).json({ error: 'Invalid Dropbox Sign webhook signature.' });
-      return;
-    }
-
-    const eventType = payload.event.event_type;
-    const signatureRequestId = payload.signature_request?.signature_request_id;
+    const payload = req.body || {};
+    const eventType = payload.event_type || payload.type || payload.event || null;
+    const documentInfo = payload?.data?.document || payload?.data || payload?.document || {};
+    const signatureRequestId = documentInfo.id || payload.document_id || null;
 
     if (!signatureRequestId) {
       acknowledge();
       return;
     }
 
+    const documentStatus = documentInfo.status || payload?.data?.status || payload.status || null;
+    const contractState = mapPandaDocStatusToContractState(documentStatus, eventType);
+
     const updatePayload = {
-      esign_status: mapDropboxSignEventToStatus(eventType),
+      esign_status: mapPandaDocStatusToEsignStatus(documentStatus, eventType),
       esign_last_event_at: new Date().toISOString(),
     };
 
-    const filesUrl = await fetchDropboxSignFilesInfo(signatureRequestId);
-    if (filesUrl) {
-      updatePayload.esign_signed_file_url = filesUrl;
+    if (contractState) {
+      updatePayload.status = contractState;
     }
 
-    if (eventType === 'signature_request_all_signed') {
-      updatePayload.status = 'signed';
+    if (contractState === 'signed') {
       updatePayload.signed_at = new Date().toISOString();
     }
 
-    if (eventType === 'signature_request_declined' || eventType === 'signature_request_canceled') {
-      updatePayload.status = 'cancelled';
-    }
-
-    const { error } = await supabaseAdmin
+    const contractMetadataId = payload?.data?.metadata?.contract_id;
+    let updateQuery = supabaseAdmin
       .from('contracts')
       .update(updatePayload)
       .eq('esign_signature_request_id', signatureRequestId);
+
+    if (contractMetadataId) {
+      updateQuery = updateQuery.eq('id', contractMetadataId);
+    }
+
+    const { error } = await updateQuery;
 
     if (error) {
       throw error;
@@ -1738,19 +1816,13 @@ app.post('/api/webhooks/dropbox-sign', async (req, res) => {
 
     acknowledge();
   } catch (error) {
-    console.error('Dropbox Sign webhook error:', error);
+    console.error('PandaDoc webhook error:', error);
     acknowledge();
   }
 });
 
-app.get('/api/webhooks/dropbox-sign', (req, res) => {
-  const challenge = req.query?.challenge;
-  if (typeof challenge === 'string' && challenge) {
-    res.type('text/plain').send(challenge);
-    return;
-  }
-
-  res.status(200).type('text/plain').send('Dropbox Sign webhook endpoint is online.');
+app.get('/api/webhooks/pandadoc', (_req, res) => {
+  res.status(200).type('text/plain').send('PandaDoc webhook endpoint is online.');
 });
 
 app.get('*', (req, res) => {
