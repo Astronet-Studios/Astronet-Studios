@@ -676,6 +676,7 @@ function renderAdminContracts(contracts, clients, options = {}) {
       <tbody>
         ${contracts.map((contract) => {
           const client = clientsById.get(contract.client_id);
+          const contractStatus = contract.esign_status || contract.status;
           return `
             <tr>
               <td>
@@ -683,11 +684,14 @@ function renderAdminContracts(contracts, clients, options = {}) {
                 <div class="table-subcopy">${contract.project_title}</div>
               </td>
               <td>${client?.profile.company_name || 'Unknown client'}</td>
-              <td><span class="status-pill status-${contract.status}">${capitalize(contract.status)}</span></td>
+              <td><span class="status-pill status-${contractStatus}">${capitalize(contractStatus)}</span></td>
               <td>${formatCurrency(contract.total_cost_dollars)}</td>
               <td>${formatCurrency(contract.deductible_due_dollars)}</td>
               <td>
-                <button type="button" class="btn btn-secondary btn-small view-contract-pdf-button" data-contract-id="${contract.id}">View Contract</button>
+                <div class="table-button-row">
+                  <button type="button" class="btn btn-secondary btn-small view-contract-pdf-button" data-contract-id="${contract.id}">View Contract</button>
+                  ${contract.esign_signature_request_id ? `<button type="button" class="btn btn-secondary btn-small view-executed-contract-button" data-contract-id="${contract.id}">View Executed</button>` : ''}
+                </div>
               </td>
             </tr>
           `;
@@ -700,6 +704,16 @@ function renderAdminContracts(contracts, clients, options = {}) {
     button.addEventListener('click', async () => {
       try {
         await openProtectedPdf(`/api/contracts/${button.dataset.contractId}/pdf`);
+      } catch (error) {
+        alert(error.message);
+      }
+    });
+  });
+
+  shell.querySelectorAll('.view-executed-contract-button').forEach((button) => {
+    button.addEventListener('click', async () => {
+      try {
+        await openProtectedPdf(`/api/contracts/${button.dataset.contractId}/executed-pdf`);
       } catch (error) {
         alert(error.message);
       }

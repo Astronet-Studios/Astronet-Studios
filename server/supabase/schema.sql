@@ -57,6 +57,11 @@ create table if not exists public.contracts (
   remaining_balance_dollars numeric(10,2) not null check (remaining_balance_dollars >= 0),
   terms_text text,
   status text not null default 'sent' check (status in ('draft', 'sent', 'signed', 'cancelled')),
+  esign_provider text,
+  esign_signature_request_id text unique,
+  esign_status text,
+  esign_signed_file_url text,
+  esign_last_event_at timestamptz,
   signed_at timestamptz,
   created_at timestamptz not null default timezone('utc', now())
 );
@@ -70,6 +75,14 @@ alter table public.invoices add column if not exists line_items jsonb not null d
 alter table public.invoices add column if not exists subtotal_dollars numeric(10,2);
 alter table public.invoices add column if not exists tax_dollars numeric(10,2) not null default 0;
 alter table public.invoices add column if not exists total_dollars numeric(10,2);
+alter table public.contracts add column if not exists esign_provider text;
+alter table public.contracts add column if not exists esign_signature_request_id text;
+alter table public.contracts add column if not exists esign_status text;
+alter table public.contracts add column if not exists esign_signed_file_url text;
+alter table public.contracts add column if not exists esign_last_event_at timestamptz;
+create unique index if not exists contracts_esign_signature_request_id_idx
+on public.contracts (esign_signature_request_id)
+where esign_signature_request_id is not null;
 
 create table if not exists public.change_requests (
   id uuid primary key default gen_random_uuid(),

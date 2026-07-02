@@ -16,6 +16,7 @@ const publicAppUrl = process.env.PUBLIC_APP_URL || `http://localhost:${PORT}`;
 const squareBaseUrl = process.env.SQUARE_ENVIRONMENT === 'production'
   ? 'https://connect.squareup.com'
   : 'https://connect.squareupsandbox.com';
+const dropboxSignBaseUrl = 'https://api.hellosign.com/v3';
 const maintenanceTierAmounts = {
   'Tier 1 - Basic Care': 49,
   'Tier 2 - Growth Care': 149,
@@ -76,6 +77,15 @@ const supabaseAdmin = hasSupabaseConfig
 app.use(express.json());
 app.use(express.urlencoded({ extended: false }));
 app.use(express.static(clientDir));
+
+app.use((req, res, next) => {
+  if (req.method === 'GET' && typeof req.query.challenge === 'string' && req.query.challenge) {
+    res.type('text/plain').send(req.query.challenge);
+    return;
+  }
+
+  next();
+});
 
 function ensureSupabase(res) {
   if (supabaseAdmin) {
@@ -690,6 +700,114 @@ async function sendContractEmail(contract, clientAccount, profile) {
     attachmentName: `${contract.contract_number}.pdf`,
     attachmentBuffer: pdfBuffer,
   });
+}
+
+function mapDropboxSignEventToStatus(eventType) {
+  switch (eventType) {
+    case 'signature_request_all_signed':
+      return 'completed';
+    case 'signature_request_declined':
+      return 'declined';
+    case 'signature_request_canceled':
+      return 'canceled';
+    case 'signature_request_sent':
+      return 'sent';
+    case 'signature_request_viewed':
+      return 'viewed';
+    case 'signature_request_signed':
+      return 'partially_signed';
+    default:
+      return eventType || 'unknown';
+  }
+}
+
+function verifyDropboxSignEvent(payload) {
+  const eventTime = payload?.event?.event_time;
+  const eventHash = payload?.event?.event_hash;
+  const apiKey = process.env.DROPBOX_SIGN_API_KEY;
+
+  if (!apiKey || !eventTime || !eventHash) {
+    return true;
+  }
+
+  const expectedHash = crypto
+    .createHash('sha256')
+    .update(`${apiKey}${eventTime}`)
+    .digest('hex');
+
+  return expectedHash === eventHash;
+}
+
+async function sendContractForESign(contract, clientAccount, profile) {
+  const apiKey = process.env.DROPBOX_SIGN_API_KEY;
+  if (!apiKey) {
+    return {
+      warning: 'Dropbox Sign is not configured. Contract was emailed as a PDF instead.',
+      signatureRequestId: null,
+      providerStatus: null,
+    };
+  }
+
+  const pdfBuffer = await generateContractPdf(contract, clientAccount, profile);
+  const form = new FormData();
+  form.append('title', `Astronet Contract ${contract.contract_number}`);
+  form.append('subject', `Please sign contract ${contract.contract_number}`);
+  form.append('message', `Please review and sign this contract for ${contract.project_title}.`);
+  form.append('signers[0][email_address]', profile.email);
+  form.append('signers[0][name]', profile.full_name || profile.company_name || profile.email || 'Client');
+  form.append('metadata[contract_id]', contract.id);
+  form.append('metadata[contract_number]', contract.contract_number);
+  form.append('metadata[client_id]', contract.client_id);
+  form.append('test_mode', String(process.env.DROPBOX_SIGN_TEST_MODE || '1'));
+  form.append(
+    'files[0]',
+    new Blob([pdfBuffer], { type: 'application/pdf' }),
+    `${contract.contract_number}.pdf`
+  );
+
+  const authHeader = Buffer.from(`${apiKey}:`).toString('base64');
+  const response = await fetch(`${dropboxSignBaseUrl}/signature_request/send`, {
+    method: 'POST',
+    headers: {
+      Authorization: `Basic ${authHeader}`,
+    },
+    body: form,
+  });
+
+  const payload = await response.json();
+  if (!response.ok) {
+    const detail = payload.error?.error_msg || payload.error_name || 'Dropbox Sign request failed.';
+    throw new Error(detail);
+  }
+
+  const signatureRequest = payload.signature_request || {};
+  return {
+    warning: null,
+    signatureRequestId: signatureRequest.signature_request_id || null,
+    providerStatus: signatureRequest.is_complete ? 'completed' : 'sent',
+  };
+}
+
+async function fetchDropboxSignFilesInfo(signatureRequestId) {
+  const apiKey = process.env.DROPBOX_SIGN_API_KEY;
+  if (!apiKey || !signatureRequestId) {
+    return null;
+  }
+
+  const authHeader = Buffer.from(`${apiKey}:`).toString('base64');
+  const response = await fetch(`${dropboxSignBaseUrl}/signature_request/files_as_data_uri/${signatureRequestId}`, {
+    method: 'GET',
+    headers: {
+      Authorization: `Basic ${authHeader}`,
+    },
+  });
+
+  const payload = await response.json();
+  if (!response.ok) {
+    return null;
+  }
+
+  return payload?.signature_request_files?.files_url || null;
 }
 
 async function enrichClients(clientAccounts) {
@@ -1372,6 +1490,8 @@ app.post('/api/admin/contracts', authMiddleware, requireAdmin, async (req, res) 
       remaining_balance_dollars: remainingBalance,
       terms_text: req.body.termsText || defaultContractTerms,
       status: req.body.status || 'sent',
+      esign_provider: process.env.DROPBOX_SIGN_API_KEY ? 'dropbox_sign' : null,
+      esign_status: null,
     };
 
     const { data: contract, error: contractError } = await supabaseAdmin
@@ -1386,12 +1506,54 @@ app.post('/api/admin/contracts', authMiddleware, requireAdmin, async (req, res) 
 
     const warnings = [];
     try {
+      const esignResult = await sendContractForESign(contract, account, profile);
+
+      if (esignResult.signatureRequestId) {
+        const { data: updatedContract, error: updateError } = await supabaseAdmin
+          .from('contracts')
+          .update({
+            esign_provider: 'dropbox_sign',
+            esign_signature_request_id: esignResult.signatureRequestId,
+            esign_status: esignResult.providerStatus,
+            esign_last_event_at: new Date().toISOString(),
+          })
+          .eq('id', contract.id)
+          .select('*')
+          .single();
+
+        if (updateError) {
+          throw updateError;
+        }
+
+        if (esignResult.warning) {
+          warnings.push(esignResult.warning);
+        }
+
+        res.status(201).json({
+          contract: updatedContract,
+          warning: warnings.length ? warnings.join(' ') : null,
+        });
+        return;
+      }
+
+      if (esignResult.warning) {
+        warnings.push(esignResult.warning);
+      }
+
       const emailWarning = await sendContractEmail(contract, account, profile);
       if (emailWarning) {
         warnings.push(emailWarning);
       }
     } catch (emailError) {
-      warnings.push(`Contract email failed: ${normalizeError(emailError, 'Unknown email error.')}`);
+      warnings.push(`E-sign dispatch failed: ${normalizeError(emailError, 'Unknown e-sign error.')}`);
+      try {
+        const fallbackEmailWarning = await sendContractEmail(contract, account, profile);
+        if (fallbackEmailWarning) {
+          warnings.push(fallbackEmailWarning);
+        }
+      } catch (fallbackError) {
+        warnings.push(`Contract email fallback failed: ${normalizeError(fallbackError, 'Unknown email error.')}`);
+      }
     }
 
     res.status(201).json({
@@ -1451,6 +1613,44 @@ app.get('/api/contracts/:contractId/pdf', authMiddleware, async (req, res) => {
   }
 });
 
+app.get('/api/contracts/:contractId/executed-pdf', authMiddleware, async (req, res) => {
+  try {
+    const contract = await resolveContractByIdForUser(req.params.contractId, req.user);
+
+    if (!contract.esign_signature_request_id) {
+      res.status(404).json({ error: 'No e-signature request is linked to this contract yet.' });
+      return;
+    }
+
+    const apiKey = process.env.DROPBOX_SIGN_API_KEY;
+    if (!apiKey) {
+      res.status(500).json({ error: 'Dropbox Sign is not configured on the server.' });
+      return;
+    }
+
+    const authHeader = Buffer.from(`${apiKey}:`).toString('base64');
+    const response = await fetch(`${dropboxSignBaseUrl}/signature_request/files/${contract.esign_signature_request_id}?file_type=pdf`, {
+      method: 'GET',
+      headers: {
+        Authorization: `Basic ${authHeader}`,
+      },
+    });
+
+    if (!response.ok) {
+      const errorPayload = await response.json().catch(() => ({}));
+      const detail = errorPayload?.error?.error_msg || 'Unable to fetch executed contract from Dropbox Sign.';
+      throw new Error(detail);
+    }
+
+    const pdfBuffer = Buffer.from(await response.arrayBuffer());
+    res.setHeader('Content-Type', 'application/pdf');
+    res.setHeader('Content-Disposition', `inline; filename="${contract.contract_number}-executed.pdf"`);
+    res.send(pdfBuffer);
+  } catch (error) {
+    res.status(500).json({ error: normalizeError(error, 'Unable to render executed contract PDF.') });
+  }
+});
+
 app.get('/api/admin/requests', authMiddleware, requireAdmin, async (_req, res) => {
   try {
     const [changeRequests, supportQuestions, subscriptionRequests] = await Promise.all([
@@ -1483,6 +1683,64 @@ app.get('/api/admin/requests', authMiddleware, requireAdmin, async (_req, res) =
 
 app.get('/health', (_req, res) => {
   res.json({ ok: true });
+});
+
+app.post('/api/webhooks/dropbox-sign', async (req, res) => {
+  const acknowledge = () => res.status(200).send('Hello API Event Received');
+
+  try {
+    const payload = typeof req.body?.json === 'string' ? JSON.parse(req.body.json) : req.body;
+    if (!payload?.event) {
+      acknowledge();
+      return;
+    }
+
+    if (!verifyDropboxSignEvent(payload)) {
+      res.status(401).json({ error: 'Invalid Dropbox Sign webhook signature.' });
+      return;
+    }
+
+    const eventType = payload.event.event_type;
+    const signatureRequestId = payload.signature_request?.signature_request_id;
+
+    if (!signatureRequestId) {
+      acknowledge();
+      return;
+    }
+
+    const updatePayload = {
+      esign_status: mapDropboxSignEventToStatus(eventType),
+      esign_last_event_at: new Date().toISOString(),
+    };
+
+    const filesUrl = await fetchDropboxSignFilesInfo(signatureRequestId);
+    if (filesUrl) {
+      updatePayload.esign_signed_file_url = filesUrl;
+    }
+
+    if (eventType === 'signature_request_all_signed') {
+      updatePayload.status = 'signed';
+      updatePayload.signed_at = new Date().toISOString();
+    }
+
+    if (eventType === 'signature_request_declined' || eventType === 'signature_request_canceled') {
+      updatePayload.status = 'cancelled';
+    }
+
+    const { error } = await supabaseAdmin
+      .from('contracts')
+      .update(updatePayload)
+      .eq('esign_signature_request_id', signatureRequestId);
+
+    if (error) {
+      throw error;
+    }
+
+    acknowledge();
+  } catch (error) {
+    console.error('Dropbox Sign webhook error:', error);
+    acknowledge();
+  }
 });
 
 app.get('*', (req, res) => {

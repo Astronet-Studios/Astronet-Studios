@@ -827,6 +827,7 @@ main {
 .status-active,
 .status-paid,
 .status-completed,
+.status-signed,
 .status-answered,
 .status-approved {
   background: rgba(31, 201, 124, 0.18);
@@ -838,7 +839,10 @@ main {
 .status-in_progress,
 .status-unpaid,
 .status-open,
-.status-submitted {
+.status-submitted,
+.status-partially_signed,
+.status-viewed,
+.status-sent {
   background: rgba(66, 165, 245, 0.18);
   color: #9fd4ff;
 }
@@ -846,7 +850,8 @@ main {
 .status-offline,
 .status-overdue,
 .status-closed,
-.status-declined {
+.status-declined,
+.status-canceled {
   background: rgba(255, 124, 124, 0.16);
   color: #ffb0b0;
 }
