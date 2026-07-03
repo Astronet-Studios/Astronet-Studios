@@ -55,6 +55,8 @@ const extraFeatureTypePricing = {
 
 const extraPageTypeOptions = Object.keys(extraPageTypePricing);
 const extraFeatureTypeOptions = Object.keys(extraFeatureTypePricing);
+const standardNySalesTaxRate = 0.04;
+const standardNySalesTaxLabel = `${(standardNySalesTaxRate * 100).toFixed(0)}%`;
 
 document.addEventListener('DOMContentLoaded', async () => {
   const page = document.body.dataset.page;
@@ -950,7 +952,7 @@ function buildInvoiceLineItems(payload) {
 function calculateInvoiceTotals(payload) {
   const lineItems = buildInvoiceLineItems(payload);
   const subtotal = lineItems.reduce((sum, item) => sum + Number(item.total || 0), 0);
-  const tax = Number(payload.taxDollars || 0);
+  const tax = Number((subtotal * standardNySalesTaxRate).toFixed(2));
   const total = subtotal + tax;
 
   return {
@@ -1001,10 +1003,14 @@ function calculateContractTotals(payload) {
     }
   });
 
-  const total = lineItems.reduce((sum, item) => sum + Number(item.total || 0), 0);
+  const subtotal = lineItems.reduce((sum, item) => sum + Number(item.total || 0), 0);
+  const tax = Number((subtotal * standardNySalesTaxRate).toFixed(2));
+  const total = subtotal + tax;
 
   return {
     lineItems,
+    subtotal,
+    tax,
     total,
   };
 }
@@ -1037,7 +1043,7 @@ function renderInvoicePricingPreview(totals) {
       <strong>${formatCurrency(totals.subtotal)}</strong>
     </div>
     <div class="invoice-pricing-row total-row">
-      <span>Tax</span>
+      <span>Tax (NY ${standardNySalesTaxLabel})</span>
       <strong>${formatCurrency(totals.tax)}</strong>
     </div>
     <div class="invoice-pricing-row grand-total-row">
@@ -1065,6 +1071,14 @@ function renderContractPricingPreview(totals) {
   preview.innerHTML = `
     <p class="invoice-pricing-title">Live Contract Cost</p>
     ${rows}
+    <div class="invoice-pricing-row total-row">
+      <span>Subtotal</span>
+      <strong>${formatCurrency(totals.subtotal)}</strong>
+    </div>
+    <div class="invoice-pricing-row total-row">
+      <span>Tax (NY ${standardNySalesTaxLabel})</span>
+      <strong>${formatCurrency(totals.tax)}</strong>
+    </div>
     <div class="invoice-pricing-row grand-total-row">
       <span>Total</span>
       <strong>${formatCurrency(totals.total)}</strong>
@@ -1127,6 +1141,7 @@ function bindAdminForms() {
     const manualOverrideEnabled = Boolean(invoiceForm.elements.manualTotalOverride.checked);
 
     if (!manualOverrideEnabled) {
+      invoiceForm.elements.taxDollars.value = totals.tax.toFixed(2);
       invoiceForm.elements.computedTotal.value = formatCurrency(totals.total);
       invoiceForm.elements.finalTotalOverride.value = totals.total.toFixed(2);
       renderInvoicePricingPreview(totals);
@@ -1134,6 +1149,7 @@ function bindAdminForms() {
     }
 
     const manualFinalTotal = parseMoneyInput(invoiceForm.elements.finalTotalOverride.value || totals.total);
+    invoiceForm.elements.taxDollars.value = totals.tax.toFixed(2);
     invoiceForm.elements.computedTotal.value = formatCurrency(manualFinalTotal);
     applyManualInvoiceTotalPreview(totals, manualFinalTotal);
   };
@@ -1234,10 +1250,6 @@ function bindAdminForms() {
 
     if (!contractForm.elements.projectTitle.value) {
       contractForm.elements.projectTitle.value = `${profile.company_name || profile.full_name || 'Client'} Website Project`;
-    }
-
-    if (!contractForm.elements.projectName.value) {
-      contractForm.elements.projectName.value = contractForm.elements.projectTitle.value;
     }
   };
 
@@ -1484,7 +1496,7 @@ function bindAdminForms() {
     payload.lineItems = totals.lineItems;
     payload.subtotalDollars = totals.subtotal.toFixed(2);
     payload.totalDollars = finalTotal.toFixed(2);
-    payload.taxDollars = Number(payload.taxDollars || 0).toFixed(2);
+    payload.taxDollars = totals.tax.toFixed(2);
 
     if (manualOverrideEnabled) {
       const adjustment = finalTotal - totals.total;
@@ -1542,6 +1554,7 @@ function populateClientForm(clientId) {
   form.elements.companyName.value = client.profile.company_name || '';
   form.elements.fullName.value = client.profile.full_name || '';
   form.elements.email.value = client.profile.email || '';
+  form.elements.phoneNumber.value = client.phone_number || '';
   form.elements.password.value = '';
   form.elements.websiteUrl.value = client.website_url || '';
   form.elements.websiteStatus.value = client.website_status || 'active';

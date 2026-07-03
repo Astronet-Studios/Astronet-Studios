@@ -58,6 +58,10 @@
             <input type="email" name="email" required />
           </label>
           <label>
+            <span>Phone Number</span>
+            <input type="tel" name="phoneNumber" placeholder="(555) 555-5555" />
+          </label>
+          <label>
             <span>Password</span>
             <input type="text" name="password" placeholder="Optional. Leave blank to auto-generate." />
           </label>
@@ -138,7 +142,7 @@
           </label>
           <label>
             <span>Tax Amount (USD)</span>
-            <input type="number" name="taxDollars" min="0" step="0.01" inputmode="decimal" placeholder="0.00" value="0.00" />
+            <input type="number" name="taxDollars" min="0" step="0.01" inputmode="decimal" placeholder="0.00" value="0.00" readonly />
           </label>
           <label>
             <span>Due Date</span>
@@ -175,8 +179,8 @@
           </label>
           <div class="form-inline-pair">
             <label>
-              <span>Project Name</span>
-              <input type="text" name="projectName" required placeholder="Main Website Build" />
+              <span>Project Title</span>
+              <input type="text" name="projectTitle" required placeholder="Main website redesign and launch" />
             </label>
             <label>
               <span>Package</span>
@@ -188,10 +192,6 @@
               </select>
             </label>
           </div>
-          <label>
-            <span>Project Title</span>
-            <input type="text" name="projectTitle" required placeholder="Main website redesign and launch" />
-          </label>
           <label>
             <span>Project Description</span>
             <textarea name="projectDescription" rows="3" placeholder="Describe the website project scope."></textarea>

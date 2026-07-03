@@ -117,6 +117,8 @@ const fixedContractRevisionPerRevisionRate = 100;
 const fixedContractLateFeeFlatDollars = 25;
 const fixedContractLateFeePercentMonthly = 1.5;
 const fixedContractWarrantyDays = 30;
+const standardNySalesTaxRate = 0.04;
+const standardNySalesTaxLabel = `${(standardNySalesTaxRate * 100).toFixed(0)}%`;
 const adminContractSelectFields = [
   'id',
   'client_id',
@@ -414,8 +416,8 @@ function buildInvoiceDetails(body) {
   }
 
   const subtotal = toCurrencyAmount(invoiceItems.reduce((sum, entry) => sum + parseMoney(entry.total_dollars, 0), 0));
-  const taxDollars = toCurrencyAmount(body.taxDollars || 0);
-  const total = toCurrencyAmount(body.totalDollars || subtotal + taxDollars);
+  const taxDollars = toCurrencyAmount(subtotal * standardNySalesTaxRate);
+  const total = toCurrencyAmount(subtotal + taxDollars);
 
   return {
     maintenanceTier: String(body.maintenanceTier || '').trim(),
@@ -460,20 +462,25 @@ function buildContractPricingDetails(body) {
   const pageSummary = pageSelections.map((entry) => `${entry.type} x${entry.count}`).join(', ');
   const featureSummary = featureSelections.map((entry) => `${entry.type} x${entry.count}`).join(', ');
 
-  let total = siteTypeBasePricing[packageName] || 0;
+  let subtotal = siteTypeBasePricing[packageName] || 0;
 
   pageSelections.forEach((entry) => {
     const unit = extraPageTypePricing[entry.type] || 0;
-    total += unit * entry.count;
+    subtotal += unit * entry.count;
   });
 
   featureSelections.forEach((entry) => {
     const unit = extraFeatureTypePricing[entry.type] || 0;
-    total += unit * entry.count;
+    subtotal += unit * entry.count;
   });
+
+  const taxDollars = toCurrencyAmount(subtotal * standardNySalesTaxRate);
+  const total = toCurrencyAmount(subtotal + taxDollars);
 
   return {
     packageName,
+    subtotalDollars: toCurrencyAmount(subtotal),
+    taxDollars,
     totalCostDollars: toCurrencyAmount(total),
     extraPagesCount: pageSelections.reduce((sum, entry) => sum + entry.count, 0),
     extraPagesType: pageSummary || null,
@@ -639,6 +646,8 @@ function generateContractPdf(contract, clientAccount, profile) {
       doc.text(`Description: ${contract.project_description}`);
     }
     doc.text(`Timeline: ${contract.timeline || 'Not specified'}`);
+    doc.text(`Subtotal: ${formatCurrency(contract.subtotal_dollars || contract.total_cost_dollars)}`);
+    doc.text(`Sales Tax (NY ${standardNySalesTaxLabel}): ${formatCurrency(contract.tax_dollars || 0)}`);
     doc.text(`Total Cost: ${formatCurrency(contract.total_cost_dollars)}`);
     doc.text(`Due Before Project Start (${contract.deductible_percent}%): ${formatCurrency(contract.deductible_due_dollars)}`);
     doc.text(`Remaining Balance: ${formatCurrency(contract.remaining_balance_dollars)}`);
@@ -933,6 +942,59 @@ async function createSquarePaymentLink(invoice, clientAccount, profile) {
   };
 }
 
+async function createSquareContractDepositPaymentLink(contract, clientAccount, profile) {
+  if (!process.env.SQUARE_ACCESS_TOKEN || !process.env.SQUARE_LOCATION_ID) {
+    return {
+      id: null,
+      url: null,
+      warning: 'Square is not configured yet.',
+    };
+  }
+
+  const response = await fetch(`${squareBaseUrl}/v2/online-checkout/payment-links`, {
+    method: 'POST',
+    headers: {
+      Authorization: `Bearer ${process.env.SQUARE_ACCESS_TOKEN}`,
+      'Content-Type': 'application/json',
+      'Square-Version': '2025-05-21',
+    },
+    body: JSON.stringify({
+      idempotency_key: crypto.randomUUID(),
+      quick_pay: {
+        name: `Deposit for ${contract.contract_number} (${profile.company_name || profile.full_name || profile.email})`,
+        price_money: {
+          amount: Math.round(Number(contract.deductible_due_dollars) * 100),
+          currency: 'USD',
+        },
+        location_id: process.env.SQUARE_LOCATION_ID,
+      },
+      checkout_options: {
+        redirect_url: `${publicAppUrl}/dashboard.html?contract=${contract.id}`,
+      },
+      pre_populated_data: {
+        buyer_email: profile.email,
+      },
+      description: [
+        `Contract deposit for ${contract.contract_number}`,
+        contract.project_title ? `Project: ${contract.project_title}` : null,
+        clientAccount.website_url ? `Website: ${clientAccount.website_url}` : null,
+      ].filter(Boolean).join(' | '),
+    }),
+  });
+
+  const payload = await response.json();
+  if (!response.ok) {
+    const detail = payload.errors?.map((entry) => entry.detail).join(', ');
+    throw new Error(detail || 'Square contract deposit link creation failed.');
+  }
+
+  return {
+    id: payload.payment_link?.id || null,
+    url: payload.payment_link?.url || null,
+    warning: null,
+  };
+}
+
 async function fetchClientInvoices(clientId) {
   const { data, error } = await supabaseAdmin
     .from('invoices')
@@ -1042,11 +1104,18 @@ async function sendInvoiceEmail(invoice, clientAccount, profile) {
 
 async function sendContractEmail(contract, clientAccount, profile) {
   const pdfBuffer = await generateContractPdf(contract, clientAccount, profile);
+  const depositLinkText = contract.square_payment_link_url
+    ? `\nAfter you sign, use this link to pay your 25% security deposit: ${contract.square_payment_link_url}`
+    : '\nAfter you sign, use the deposit payment link we send to pay your 25% security deposit.';
+  const depositLinkHtml = contract.square_payment_link_url
+    ? `<p>After you sign, use this link to pay your 25% security deposit: <a href="${contract.square_payment_link_url}">Pay 25% deposit</a></p>`
+    : '<p>After you sign, use the deposit payment link we send to pay your 25% security deposit.</p>';
+
   return sendEmailWithAttachment({
     to: profile.email,
     subject: `Contract ${contract.contract_number} from Astronet Studios`,
-    text: `Hello ${profile.full_name || profile.company_name || 'Client'},\n\nYour project contract is attached as a PDF. Please review, sign, and send the signed contract back by replying to this email.\n\nThank you,\nAstronet Studios`,
-    html: `<p>Hello ${profile.full_name || profile.company_name || 'Client'},</p><p>Your project contract is attached as a PDF.</p><p>Please review, sign, and send the signed contract back by replying to this email.</p><p>Thank you,<br/>Astronet Studios</p>`,
+    text: `Hello ${profile.full_name || profile.company_name || 'Client'},\n\nYour project contract is attached as a PDF. Please review, sign, and send the signed contract back by replying to this email.${depositLinkText}\n\nThank you,\nAstronet Studios`,
+    html: `<p>Hello ${profile.full_name || profile.company_name || 'Client'},</p><p>Your project contract is attached as a PDF.</p><p>Please review, sign, and send the signed contract back by replying to this email.</p>${depositLinkHtml}<p>Thank you,<br/>Astronet Studios</p>`,
     attachmentName: `${contract.contract_number}.pdf`,
     attachmentBuffer: pdfBuffer,
   });
@@ -1441,6 +1510,7 @@ app.post('/api/admin/clients', authMiddleware, requireAdmin, async (req, res) =>
       .from('client_accounts')
       .insert({
         profile_id: createdUser.user.id,
+        phone_number: req.body.phoneNumber || null,
         website_url: req.body.websiteUrl,
         website_status: req.body.websiteStatus || 'active',
         subscription_plan: req.body.subscriptionPlan || 'Tier 1 - Basic Care',
@@ -1494,6 +1564,7 @@ app.put('/api/admin/clients/:clientId', authMiddleware, requireAdmin, async (req
     const { data, error } = await supabaseAdmin
       .from('client_accounts')
       .update({
+        phone_number: req.body.phoneNumber || null,
         website_url: req.body.websiteUrl,
         website_status: req.body.websiteStatus,
         subscription_plan: req.body.subscriptionPlan,
@@ -1726,7 +1797,7 @@ app.post('/api/admin/contracts', authMiddleware, requireAdmin, async (req, res) 
       client_id: req.body.clientId,
       contract_number: buildContractNumber(),
       project_title: req.body.projectTitle,
-      project_name: req.body.projectName || req.body.projectTitle,
+      project_name: req.body.projectTitle,
       package_name: packageName,
       project_description: req.body.projectDescription || null,
       site_type: packageName,
@@ -1736,6 +1807,8 @@ app.post('/api/admin/contracts', authMiddleware, requireAdmin, async (req, res) 
       extra_pages_type: pricing.extraPagesType,
       extra_features_count: pricing.extraFeaturesCount,
       extra_features_type: pricing.extraFeaturesType,
+      subtotal_dollars: pricing.subtotalDollars,
+      tax_dollars: pricing.taxDollars,
       total_cost_dollars: totalCost,
       deductible_percent: deductiblePercent,
       deductible_due_dollars: deductibleDue,
@@ -1754,6 +1827,8 @@ app.post('/api/admin/contracts', authMiddleware, requireAdmin, async (req, res) 
       warranty_days: fixedContractWarrantyDays,
       terms_text: req.body.termsText || null,
       status: req.body.status || 'sent',
+      square_payment_link_id: null,
+      square_payment_link_url: null,
       esign_provider: null,
       esign_status: null,
     };
@@ -1769,8 +1844,33 @@ app.post('/api/admin/contracts', authMiddleware, requireAdmin, async (req, res) 
     }
 
     const warnings = [];
+    let responseContract = contract;
+
+    const depositPaymentLink = await createSquareContractDepositPaymentLink(contract, account, profile);
+    if (depositPaymentLink.url) {
+      const { data: updatedContract, error: updateContractError } = await supabaseAdmin
+        .from('contracts')
+        .update({
+          square_payment_link_id: depositPaymentLink.id,
+          square_payment_link_url: depositPaymentLink.url,
+        })
+        .eq('id', contract.id)
+        .select('*')
+        .single();
+
+      if (updateContractError) {
+        throw updateContractError;
+      }
+
+      responseContract = updatedContract;
+    }
+
+    if (depositPaymentLink.warning) {
+      warnings.push(depositPaymentLink.warning);
+    }
+
     try {
-      const emailWarning = await sendContractEmail(contract, account, profile);
+      const emailWarning = await sendContractEmail(responseContract, account, profile);
       if (emailWarning) {
         warnings.push(emailWarning);
       }
@@ -1779,7 +1879,7 @@ app.post('/api/admin/contracts', authMiddleware, requireAdmin, async (req, res) 
     }
 
     res.status(201).json({
-      contract,
+      contract: responseContract,
       warning: warnings.length ? warnings.join(' ') : null,
     });
   } catch (error) {
