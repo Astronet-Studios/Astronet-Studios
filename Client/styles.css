@@ -990,6 +990,131 @@ main {
   color: var(--muted);
 }
 
+.about-photo-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 1rem;
+}
+
+.about-photo-slot {
+  min-height: 280px;
+  border: 1px dashed rgba(66, 165, 245, 0.45);
+  border-radius: 16px;
+  background: rgba(10, 18, 41, 0.7);
+  display: grid;
+  place-content: center;
+  text-align: center;
+  padding: 1rem;
+}
+
+.about-photo-slot h3 {
+  margin: 0 0 0.5rem;
+  color: #f5f8ff;
+}
+
+.about-photo-slot p {
+  margin: 0;
+  color: var(--muted);
+}
+
+.portal-modal {
+  position: fixed;
+  inset: 0;
+  z-index: 60;
+  display: grid;
+  place-items: center;
+  padding: 1rem;
+}
+
+.portal-modal[hidden] {
+  display: none !important;
+}
+
+.portal-modal-backdrop {
+  position: absolute;
+  inset: 0;
+  background: rgba(5, 9, 24, 0.7);
+  backdrop-filter: blur(4px);
+}
+
+.portal-modal-card {
+  position: relative;
+  width: min(860px, 94vw);
+  max-height: 90vh;
+  overflow: auto;
+  border-radius: 16px;
+  border: 1px solid rgba(66, 165, 245, 0.28);
+  background: linear-gradient(165deg, rgba(10, 17, 39, 0.96), rgba(13, 27, 59, 0.95));
+  box-shadow: 0 24px 54px rgba(0, 0, 0, 0.5);
+  padding: 1rem;
+  display: grid;
+  gap: 0.9rem;
+}
+
+.portal-modal-header,
+.portal-modal-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.7rem;
+}
+
+.portal-modal-header h3 {
+  margin: 0;
+  color: #f5f8ff;
+}
+
+.portal-modal-footer {
+  justify-content: flex-end;
+  flex-wrap: wrap;
+}
+
+.contract-preview-content {
+  border: 1px solid rgba(66, 165, 245, 0.24);
+  border-radius: 12px;
+  background: rgba(9, 15, 35, 0.82);
+  padding: 0.9rem;
+  display: grid;
+  gap: 0.7rem;
+  color: #dfe9ff;
+}
+
+.contract-preview-content p {
+  margin: 0;
+  color: var(--muted);
+  line-height: 1.45;
+}
+
+.contract-preview-grid {
+  display: grid;
+  gap: 0.55rem;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.contract-preview-field {
+  border: 1px solid rgba(66, 165, 245, 0.2);
+  border-radius: 10px;
+  padding: 0.65rem;
+  background: rgba(13, 25, 53, 0.64);
+}
+
+.contract-preview-field strong {
+  display: block;
+  color: #f5f8ff;
+  margin-bottom: 0.25rem;
+}
+
+.contract-preview-section {
+  border-top: 1px solid rgba(66, 165, 245, 0.24);
+  padding-top: 0.7rem;
+}
+
+.contract-preview-section h4 {
+  margin: 0 0 0.35rem;
+  color: #f5f8ff;
+  font-size: 0.98rem;
+}
+
 @keyframes floatA {
   0%,
   100% {
@@ -1145,5 +1270,18 @@ main {
     bottom: 1rem;
     width: 44px;
     height: 44px;
+  }
+
+  .contract-preview-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .portal-modal-card {
+    width: min(94vw, 860px);
+    max-height: 92vh;
+  }
+
+  .about-photo-grid {
+    grid-template-columns: 1fr;
   }
 }
