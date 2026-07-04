@@ -3,7 +3,7 @@
   const overlay = document.getElementById('intro-overlay');
   if (!overlay) return;
 
-  const INTRO_START_TIME_SECONDS = 6;
+  const INTRO_START_TIME_SECONDS = 5.7;
 
   // Skip intro if already played this session
   if (sessionStorage.getItem('introPlayed')) {
