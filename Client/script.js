@@ -3,6 +3,8 @@
   const overlay = document.getElementById('intro-overlay');
   if (!overlay) return;
 
+  const INTRO_START_TIME_SECONDS = 6;
+
   // Skip intro if already played this session
   if (sessionStorage.getItem('introPlayed')) {
     overlay.remove();
@@ -18,8 +20,33 @@
     overlay.addEventListener('transitionend', () => overlay.remove(), { once: true });
   }
 
+  function startIntroFromOffset() {
+    if (!video) return;
+
+    const canUseDuration = Number.isFinite(video.duration) && video.duration > 0;
+    const safeStartTime = canUseDuration
+      ? Math.min(INTRO_START_TIME_SECONDS, Math.max(video.duration - 0.05, 0))
+      : INTRO_START_TIME_SECONDS;
+
+    try {
+      video.currentTime = safeStartTime;
+    } catch (_error) {
+      // Some browsers can reject seeking before enough data has loaded.
+    }
+
+    video.play().catch(() => {
+      // Ignore autoplay failures; user can still skip or interact.
+    });
+  }
+
   video.addEventListener('ended', dismiss);
   skipBtn.addEventListener('click', dismiss);
+
+  if (video.readyState >= 1) {
+    startIntroFromOffset();
+  } else {
+    video.addEventListener('loadedmetadata', startIntroFromOffset, { once: true });
+  }
 })();
 
 const menuButton = document.querySelector('.menu-toggle');
