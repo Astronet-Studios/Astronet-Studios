@@ -1185,6 +1185,83 @@ app.get('/api/config', (_req, res) => {
   });
 });
 
+app.post('/api/contact', async (req, res) => {
+  try {
+    const fullName = String(req.body.fullName || '').trim();
+    const email = String(req.body.email || '').trim();
+    const phone = String(req.body.phone || '').trim();
+    const company = String(req.body.company || '').trim();
+    const budget = String(req.body.budget || '').trim();
+    const timeline = String(req.body.timeline || '').trim();
+    const message = String(req.body.message || '').trim();
+    const website = String(req.body.website || '').trim();
+
+    if (website) {
+      res.status(200).json({
+        success: true,
+        message: 'Thanks! Your request has been received.',
+      });
+      return;
+    }
+
+    if (!fullName || !email || !message) {
+      res.status(400).json({ error: 'Full name, email, and message are required.' });
+      return;
+    }
+
+    const recipient = process.env.CONTACT_FORM_TO || 'astronetstudios@gmail.com';
+    const subject = `New website inquiry from ${fullName}`;
+    const text = [
+      'New contact form submission',
+      '',
+      `Name: ${fullName}`,
+      `Email: ${email}`,
+      `Phone: ${phone || 'Not provided'}`,
+      `Company: ${company || 'Not provided'}`,
+      `Budget: ${budget || 'Not provided'}`,
+      `Timeline: ${timeline || 'Not provided'}`,
+      '',
+      'Message:',
+      message,
+      '',
+      `Submitted at: ${new Date().toISOString()}`,
+    ].join('\n');
+    const html = `
+      <p><strong>New contact form submission</strong></p>
+      <p><strong>Name:</strong> ${fullName}</p>
+      <p><strong>Email:</strong> ${email}</p>
+      <p><strong>Phone:</strong> ${phone || 'Not provided'}</p>
+      <p><strong>Company:</strong> ${company || 'Not provided'}</p>
+      <p><strong>Budget:</strong> ${budget || 'Not provided'}</p>
+      <p><strong>Timeline:</strong> ${timeline || 'Not provided'}</p>
+      <p><strong>Message:</strong></p>
+      <p>${message.replace(/\n/g, '<br/>')}</p>
+      <p><em>Submitted at: ${new Date().toISOString()}</em></p>
+    `;
+
+    const warning = await sendEmailWithAttachment({
+      to: recipient,
+      subject,
+      text,
+      html,
+      attachmentName: null,
+      attachmentBuffer: null,
+    });
+
+    if (warning) {
+      res.status(503).json({ error: warning });
+      return;
+    }
+
+    res.status(200).json({
+      success: true,
+      message: 'Thank you. Your message has been sent successfully.',
+    });
+  } catch (error) {
+    res.status(500).json({ error: normalizeError(error, 'Unable to send your message right now.') });
+  }
+});
+
 app.get('/api/me', authMiddleware, async (req, res) => {
   try {
     const account = req.user.profile.role === 'client'
