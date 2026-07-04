@@ -1146,12 +1146,16 @@ main {
 
 .about-photo-grid {
   display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(260px, 360px));
+  justify-content: center;
   gap: 1rem;
 }
 
 .about-photo-slot {
-  min-height: 280px;
+  min-height: 0;
+  width: 100%;
+  max-width: 360px;
+  aspect-ratio: 3 / 4;
   border: 1px solid rgba(66, 165, 245, 0.26);
   border-radius: 16px;
   background: rgba(10, 18, 41, 0.7);
@@ -1185,6 +1189,7 @@ main {
   height: 100%;
   max-height: none;
   object-fit: cover;
+  object-position: center 20%;
   border-radius: 0;
   border: 0;
   display: block;
