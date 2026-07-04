@@ -1,3 +1,27 @@
+// ── Intro video ────────────────────────────────
+(function () {
+  const overlay = document.getElementById('intro-overlay');
+  if (!overlay) return;
+
+  // Skip intro if already played this session
+  if (sessionStorage.getItem('introPlayed')) {
+    overlay.remove();
+    return;
+  }
+
+  const video = document.getElementById('intro-video');
+  const skipBtn = document.getElementById('intro-skip');
+
+  function dismiss() {
+    sessionStorage.setItem('introPlayed', '1');
+    overlay.classList.add('fade-out');
+    overlay.addEventListener('transitionend', () => overlay.remove(), { once: true });
+  }
+
+  video.addEventListener('ended', dismiss);
+  skipBtn.addEventListener('click', dismiss);
+})();
+
 const menuButton = document.querySelector('.menu-toggle');
 const nav = document.querySelector('.main-nav');
 
