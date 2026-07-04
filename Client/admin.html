@@ -13,307 +13,299 @@
 
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Astronet Studios | Pricing Chart</title>
-  <meta name="description" content="Astronet Studios pricing chart for websites, e-commerce builds, extra pages, feature add-ons, and maintenance tiers." />
-  <link rel="canonical" href="https://astronetstudios.com/pricing.html" />
-  <meta name="robots" content="index,follow,max-image-preview:large" />
-  <meta property="og:title" content="Astronet Studios | Pricing Chart" />
-  <meta property="og:description" content="Astronet Studios pricing chart for websites, e-commerce builds, extra pages, feature add-ons, and maintenance tiers." />
-  <meta property="og:url" content="https://astronetstudios.com/pricing.html" />
-  <meta property="og:image" content="https://astronetstudios.com/Astronet%20Studios%20Logo.png" />
-  <meta property="og:type" content="website" />
-  <meta name="twitter:card" content="summary_large_image" />
-  <meta name="twitter:title" content="Astronet Studios | Pricing Chart" />
-  <meta name="twitter:description" content="Astronet Studios pricing chart for websites, e-commerce builds, extra pages, feature add-ons, and maintenance tiers." />
-  <meta name="twitter:image" content="https://astronetstudios.com/Astronet%20Studios%20Logo.png" />
+  <title>Astronet Studios | Admin Dashboard</title>
+  <meta name="description" content="Astronet Studios admin dashboard for clients, invoices, payment status, and incoming requests." />
+  <meta name="robots" content="noindex,nofollow,noarchive" />
+  <link rel="canonical" href="https://astronetstudios.com/admin.html" />
   <link rel="icon" type="image/png" href="Astronet Studios Logo.png" />
   <link rel="apple-touch-icon" href="Astronet Studios Logo.png" />
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Sora:wght@400;600;700;800&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet" />
   <link rel="stylesheet" href="styles.css" />
-  <script type="application/ld+json">
-    {
-      "@context": "https://schema.org",
-      "@type": "WebPage",
-      "name": "Astronet Studios Pricing Chart",
-      "url": "https://astronetstudios.com/pricing.html",
-      "description": "Pricing chart for websites, e-commerce builds, feature add-ons, and maintenance tiers."
-    }
-  </script>
 </head>
-<body class="pricing-page">
+<body class="portal-page" data-page="admin-dashboard">
   <div class="starfield" aria-hidden="true"></div>
   <div class="bg-orb orb-a" aria-hidden="true"></div>
   <div class="bg-orb orb-b" aria-hidden="true"></div>
 
-  <header class="site-header marketing-header">
+  <header class="site-header">
     <a href="/" class="brand" aria-label="Astronet Studios home">
       <img src="Astronet Studios Logo.png" alt="Astronet Studios logo" class="brand-logo" />
     </a>
-
-    <button class="menu-toggle" aria-label="Open menu" aria-expanded="false">Menu</button>
-
-    <nav class="main-nav" aria-label="Main">
-      <a href="/">Home</a>
-      <a href="/#services-overview">Services</a>
-      <a href="/#portfolio-showcase">Portfolio</a>
-      <a href="pricing.html">Pricing</a>
-      <a href="about.html">About</a>
-      <a href="contact.html">Contact Us</a>
-    </nav>
+    <div class="portal-header-actions">
+      <p id="admin-user" class="portal-user-label"></p>
+      <button type="button" class="btn btn-secondary" id="logout-button">Logout</button>
+    </div>
   </header>
 
-  <main class="pricing-layout" id="top">
-    <section class="hero pricing-hero reveal">
-      <p class="kicker">Pricing Chart</p>
-      <h1>Clear pricing for every build stage.</h1>
-      <p class="hero-copy">
-        Use this chart to estimate project scope, understand support options, and plan your launch budget with confidence.
-      </p>
-      <div class="hero-actions">
-        <a class="btn btn-primary" href="contact.html">Start a Project</a>
-        <a class="btn btn-secondary" href="/">Back to Home</a>
+  <main class="portal-shell">
+    <section class="portal-hero reveal show">
+      <p class="kicker">Admin Dashboard</p>
+      <h1>Welcome Admin</h1>
+    </section>
+
+    <section class="admin-section reveal show">
+      <div class="admin-section-heading">
+        <p class="kicker">Operations</p>
+        <h2>Create and Manage Work</h2>
+      </div>
+      <div class="admin-actions-grid">
+        <article class="portal-card admin-card-add-client">
+        <p class="panel-title">Add Client</p>
+        <form id="client-form" class="portal-form compact-form admin-form">
+          <input type="hidden" name="clientId" />
+          <label>
+            <span>Company Name</span>
+            <input type="text" name="companyName" required />
+          </label>
+          <label>
+            <span>Contact Name</span>
+            <input type="text" name="fullName" required />
+          </label>
+          <label>
+            <span>Email</span>
+            <input type="email" name="email" required />
+          </label>
+          <label>
+            <span>Phone Number</span>
+            <input type="tel" name="phoneNumber" placeholder="(555) 555-5555" />
+          </label>
+          <label>
+            <span>Password</span>
+            <input type="text" name="password" placeholder="Optional. Leave blank to auto-generate." />
+          </label>
+          <label>
+            <span>Website URL</span>
+            <input type="url" name="websiteUrl" placeholder="https://clientsite.com" />
+          </label>
+          <label>
+            <span>Website Status</span>
+            <select name="websiteStatus">
+              <option value="active">Active</option>
+              <option value="maintenance">Maintenance</option>
+              <option value="offline">Offline</option>
+            </select>
+          </label>
+          <label>
+            <span>Subscription Plan</span>
+            <select name="subscriptionPlan">
+              <option value="Tier 1 - Basic Care">Tier 1 - Basic Care ($49/month)</option>
+              <option value="Tier 2 - Growth Care">Tier 2 - Growth Care ($149/month)</option>
+              <option value="Tier 3 - Business Care">Tier 3 - Business Care ($299/month)</option>
+              <option value="Tier 4 - Full Management">Tier 4 - Full Management ($499-$1,200/month)</option>
+            </select>
+          </label>
+          <div class="form-button-row">
+            <button type="submit" class="btn btn-primary">Save Client</button>
+            <button type="button" class="btn btn-secondary" id="client-form-reset">Clear</button>
+          </div>
+          <p class="form-message" id="client-form-message" aria-live="polite"></p>
+        </form>
+        </article>
+
+        <article class="portal-card admin-card-create-invoice">
+        <p class="panel-title">Create Invoice</p>
+        <form id="invoice-form" class="portal-form compact-form admin-form">
+          <label>
+            <span>Client</span>
+            <select name="clientId" id="invoice-client-select" required></select>
+          </label>
+          <label>
+            <span>Type of Site</span>
+            <select name="siteType" required>
+              <option value="Starter Website">Starter Website</option>
+              <option value="Business Website">Business Website</option>
+              <option value="Premium Website">Premium Website</option>
+              <option value="E-Commerce Website">E-Commerce Website</option>
+              <option value="Landing Page">Landing Page</option>
+              <option value="Custom Web App">Custom Web App</option>
+            </select>
+          </label>
+          <label>
+            <span>Maintenance Tier</span>
+            <select name="maintenanceTier" required>
+              <option value="" selected disabled>Select a maintenance tier</option>
+              <option value="Tier 1 - Basic Care">Tier 1 - Basic Care ($49/month)</option>
+              <option value="Tier 2 - Growth Care">Tier 2 - Growth Care ($149/month)</option>
+              <option value="Tier 3 - Business Care">Tier 3 - Business Care ($299/month)</option>
+              <option value="Tier 4 - Full Management">Tier 4 - Full Management ($499-$1,200/month)</option>
+            </select>
+          </label>
+          <div class="multi-option-group" id="extra-pages-group">
+            <div class="multi-option-header">
+              <p>Extra Pages</p>
+              <button type="button" class="btn btn-secondary btn-small" id="add-extra-page-type">Add Page Type</button>
+            </div>
+            <div class="multi-option-rows" id="extra-pages-rows"></div>
+          </div>
+          <div class="multi-option-group" id="extra-features-group">
+            <div class="multi-option-header">
+              <p>Extra Features</p>
+              <button type="button" class="btn btn-secondary btn-small" id="add-extra-feature-type">Add Feature Type</button>
+            </div>
+            <div class="multi-option-rows" id="extra-features-rows"></div>
+          </div>
+          <label>
+            <span>Additional Custom Amount (USD)</span>
+            <input type="number" name="additionalAmountDollars" min="0" step="0.01" inputmode="decimal" placeholder="0.00" value="0.00" />
+          </label>
+          <label>
+            <span>Tax Amount (USD)</span>
+            <input type="number" name="taxDollars" min="0" step="0.01" inputmode="decimal" placeholder="0.00" value="0.00" readonly />
+          </label>
+          <label>
+            <span>Due Date</span>
+            <input type="date" name="dueDate" required />
+          </label>
+          <label>
+            <span>Invoice Description</span>
+            <input type="text" name="invoiceDescription" placeholder="Scope summary, deliverables, or special notes" />
+          </label>
+          <label>
+            <span>Auto-Generated Total (USD)</span>
+            <input type="text" name="computedTotal" readonly value="$0.00" />
+          </label>
+          <label class="checkbox-label">
+            <input type="checkbox" name="manualTotalOverride" />
+            <span>Manually edit final invoice total</span>
+          </label>
+          <label>
+            <span>Final Invoice Total (USD)</span>
+            <input type="number" name="finalTotalOverride" min="0" step="0.01" inputmode="decimal" placeholder="0.00" disabled />
+          </label>
+          <div id="invoice-pricing-preview" class="invoice-pricing-preview" aria-live="polite"></div>
+          <button type="submit" class="btn btn-primary">Create Invoice</button>
+          <p class="form-message" id="invoice-form-message" aria-live="polite"></p>
+        </form>
+        </article>
+
+        <article class="portal-card admin-card-create-contract">
+        <p class="panel-title">Create Contract</p>
+        <form id="contract-form" class="portal-form compact-form admin-form">
+          <label>
+            <span>Client</span>
+            <select name="clientId" id="contract-client-select" required></select>
+          </label>
+          <div class="form-inline-pair">
+            <label>
+              <span>Project Title</span>
+              <input type="text" name="projectTitle" required placeholder="Main website redesign and launch" />
+            </label>
+            <label>
+              <span>Package</span>
+              <select name="packageName" required>
+                <option value="Starter Website">Starter Website</option>
+                <option value="Business Website">Business Website</option>
+                <option value="Premium Website">Premium Website</option>
+                <option value="E-Commerce Website">E-Commerce Website</option>
+              </select>
+            </label>
+          </div>
+          <label>
+            <span>Project Description</span>
+            <textarea name="projectDescription" rows="3" placeholder="Describe the website project scope."></textarea>
+          </label>
+          <label>
+            <span>Timeline</span>
+            <input type="text" name="timeline" required placeholder="4-6 weeks from kickoff" />
+          </label>
+          <div class="multi-option-group" id="contract-extra-pages-group">
+            <div class="multi-option-header">
+              <p>Extra Pages</p>
+              <button type="button" class="btn btn-secondary btn-small" id="add-contract-extra-page-type">Add Page Type</button>
+            </div>
+            <div class="multi-option-rows" id="contract-extra-pages-rows" data-kind="pages"></div>
+          </div>
+          <div class="multi-option-group" id="contract-extra-features-group">
+            <div class="multi-option-header">
+              <p>Extra Features</p>
+              <button type="button" class="btn btn-secondary btn-small" id="add-contract-extra-feature-type">Add Feature Type</button>
+            </div>
+            <div class="multi-option-rows" id="contract-extra-features-rows" data-kind="features"></div>
+          </div>
+          <label>
+            <span>Total Project Cost (USD)</span>
+            <input type="number" name="totalCostDollars" required min="1" step="0.01" value="1000.00" readonly />
+          </label>
+          <div id="contract-pricing-preview" class="invoice-pricing-preview" aria-live="polite"></div>
+          <label>
+            <span>Terms and Conditions (optional override)</span>
+            <textarea name="termsText" rows="7" placeholder="Leave blank to use default Astronet Studios terms and conditions."></textarea>
+          </label>
+          <label>
+            <span>Deductible Due (Auto)</span>
+            <input type="text" name="deductibleDuePreview" readonly value="$250.00" />
+          </label>
+          <div class="form-button-row">
+            <button type="submit" class="btn btn-primary">Create Contract</button>
+          </div>
+          <p class="form-message" id="contract-form-message" aria-live="polite"></p>
+        </form>
+        </article>
       </div>
     </section>
 
-    <section class="section reveal">
-      <h2>Initial Project Pricing Guide</h2>
-      <div class="pricing-table-wrap">
-        <table class="pricing-table">
-          <thead>
-            <tr>
-              <th scope="col">Category</th>
-              <th scope="col">Price Range</th>
-              <th scope="col">Notes</th>
-            </tr>
-          </thead>
-          <tbody>
-            <tr>
-              <td><strong>Starter Website</strong></td>
-              <td>$1,000–$2,500</td>
-              <td>3–5 pages</td>
-            </tr>
-            <tr>
-              <td><strong>Business Website</strong></td>
-              <td>$2,500–$5,000</td>
-              <td>6–10 pages</td>
-            </tr>
-            <tr>
-              <td><strong>Premium Website</strong></td>
-              <td>$5,000–$10,000</td>
-              <td>10–20 pages</td>
-            </tr>
-            <tr>
-              <td><strong>E-Commerce Website</strong></td>
-              <td>$1,500+</td>
-              <td>Full storefront setup with catalog, checkout, and core integrations</td>
-            </tr>
-            <tr>
-              <td><strong>Extra Pages</strong></td>
-              <td>$150–$1,000 each</td>
-              <td>Final pricing depends on layout complexity and content requirements</td>
-            </tr>
-            <tr>
-              <td><strong>Feature Add-Ons</strong></td>
-              <td>$10–$5,000</td>
-              <td>Cost depends on technical complexity and integration depth</td>
-            </tr>
-            <tr>
-              <td><strong>Maintenance Tier 1 ($49/mo)</strong></td>
-              <td>$49/mo</td>
-              <td>Basic updates</td>
-            </tr>
-            <tr>
-              <td><strong>Maintenance Tier 2 ($149/mo)</strong></td>
-              <td>$149/mo</td>
-              <td>Growth support</td>
-            </tr>
-            <tr>
-              <td><strong>Maintenance Tier 3 ($299/mo)</strong></td>
-              <td>$299/mo</td>
-              <td>Business support</td>
-            </tr>
-            <tr>
-              <td><strong>Maintenance Tier 4 ($499/mo)</strong></td>
-              <td>$499/mo</td>
-              <td>Full management</td>
-            </tr>
-          </tbody>
-        </table>
+    <section class="admin-section reveal show">
+      <div class="admin-section-heading">
+        <p class="kicker">Records</p>
+        <h2>Clients and Documents</h2>
+      </div>
+      <div class="admin-records-grid">
+        <article class="portal-card admin-card-clients">
+        <p class="panel-title">Clients</p>
+        <label class="admin-search-label" for="admin-client-search">
+          <span>Search client by name</span>
+          <input type="search" id="admin-client-search" placeholder="Type client name" autocomplete="off" />
+        </label>
+        <div id="admin-clients" class="table-shell"></div>
+        </article>
+
+        <article class="portal-card admin-card-invoices">
+        <p class="panel-title">Invoices</p>
+        <label class="admin-search-label" for="admin-invoice-search">
+          <span>Search invoice by client name or invoice number</span>
+          <input type="search" id="admin-invoice-search" placeholder="Type client name or invoice #" autocomplete="off" />
+        </label>
+        <div id="admin-invoices" class="table-shell"></div>
+        </article>
+
+        <article class="portal-card admin-card-contracts">
+        <p class="panel-title">Contracts</p>
+        <label class="admin-search-label" for="admin-contract-search">
+          <span>Search contract by client name or contract number</span>
+          <input type="search" id="admin-contract-search" placeholder="Type client name or contract #" autocomplete="off" />
+        </label>
+        <div id="admin-contracts" class="table-shell"></div>
+        </article>
       </div>
     </section>
 
-    <section class="section reveal">
-      <h2>Extra Pages Price Guide</h2>
-      <div class="pricing-table-wrap">
-        <table class="pricing-table">
-          <thead>
-            <tr>
-              <th scope="col">Page Type</th>
-              <th scope="col">Typical Cost</th>
-            </tr>
-          </thead>
-          <tbody>
-            <tr>
-              <td><strong>Simple Page (About, Contact)</strong></td>
-              <td>$100–$200</td>
-            </tr>
-            <tr>
-              <td><strong>Service/Product Page</strong></td>
-              <td>$150–$300</td>
-            </tr>
-            <tr>
-              <td><strong>Blog/Article Template</strong></td>
-              <td>$200–$400</td>
-            </tr>
-            <tr>
-              <td><strong>Landing Page (high-conversion)</strong></td>
-              <td>$300–$800</td>
-            </tr>
-            <tr>
-              <td><strong>Portfolio/Gallery Page</strong></td>
-              <td>$300–$800</td>
-            </tr>
-            <tr>
-              <td><strong>Custom Interactive Page</strong></td>
-              <td>$500–$1,500</td>
-            </tr>
-          </tbody>
-        </table>
+    <section class="admin-section reveal show">
+      <div class="admin-section-heading">
+        <p class="kicker">Requests</p>
+        <h2>Incoming Client Requests</h2>
       </div>
-    </section>
-    
-    <section class="section reveal">
-      <h2>Feature Pricing Guide</h2>
-      <div class="pricing-table-wrap">
-        <table class="pricing-table">
-          <thead>
-            <tr>
-              <th scope="col">Feature</th>
-              <th scope="col">Added Cost</th>
-              <th scope="col">Notes</th>
-            </tr>
-          </thead>
-          <tbody>
-            <tr>
-              <td><strong>Product Upload (Shopify)</strong></td>
-              <td>$5–$15 per product</td>
-              <td>Includes images, variants, tags</td>
-            </tr>
-            <tr>
-              <td><strong>App Integrations</strong></td>
-              <td>$100–$400 each</td>
-              <td>Reviews, upsells, subscriptions</td>
-            </tr>
-            <tr>
-              <td><strong>Advanced Forms</strong></td>
-              <td>$150–$500</td>
-              <td>Multi-step forms, conditional logic</td>
-            </tr>
-            <tr>
-              <td><strong>Custom Animations</strong></td>
-              <td>$150–$600</td>
-              <td>Scroll effects, hover effects, transitions</td>
-            </tr>
-            <tr>
-              <td><strong>SEO Setup</strong></td>
-              <td>$200–$800</td>
-              <td>Metadata, indexing, speed optimization</td>
-            </tr>
-            <tr>
-              <td><strong>Booking System</strong></td>
-              <td>$300–$1,200</td>
-              <td>Calendars, scheduling, notifications</td>
-            </tr>
-            <tr>
-              <td><strong>Branding Package</strong></td>
-              <td>$300–$1,000</td>
-              <td>Logo, color palette, typography</td>
-            </tr>
-            <tr>
-              <td><strong>Membership/Login System</strong></td>
-              <td>$800–$3,000</td>
-              <td>User accounts, dashboards</td>
-            </tr>
-            <tr>
-              <td><strong>Custom Dashboard</strong></td>
-              <td>$1,000–$5,000</td>
-              <td>Admin panels, analytics</td>
-            </tr>
-          </tbody>
-        </table>
+      <div class="admin-requests-grid">
+        <article class="portal-card">
+        <p class="panel-title">Website Change Requests</p>
+        <div id="admin-change-requests" class="request-list"></div>
+        </article>
+
+        <article class="portal-card">
+        <p class="panel-title">Support Questions</p>
+        <div id="admin-support-questions" class="request-list"></div>
+        </article>
+
+        <article class="portal-card">
+        <p class="panel-title">Subscription Change Requests</p>
+        <div id="admin-subscription-requests" class="request-list"></div>
+        </article>
       </div>
-    </section>
-
-    <section class="section reveal">
-      <h2>Maintenance &amp; Change Packages (Monthly)</h2>
-      <div class="pricing-table-wrap">
-        <table class="pricing-table">
-          <thead>
-            <tr>
-              <th scope="col">Tier</th>
-              <th scope="col">Monthly Cost</th>
-              <th scope="col">What's Included</th>
-            </tr>
-          </thead>
-          <tbody>
-            <tr>
-              <td><strong>Tier 1 - Basic Care ($49/month)</strong></td>
-              <td>$49/month</td>
-              <td>Minor text/image updates, security checks, uptime monitoring</td>
-            </tr>
-            <tr>
-              <td><strong>Tier 2 - Growth Care ($149/month)</strong></td>
-              <td>$149/month</td>
-              <td>Up to 3 changes per month, speed optimization, monthly SEO check, bug fixes</td>
-            </tr>
-            <tr>
-              <td><strong>Tier 3 - Business Care ($299/month)</strong></td>
-              <td>$299/month</td>
-              <td>Up to 10 changes per month, new sections/pages, priority support, monthly analytics report</td>
-            </tr>
-            <tr>
-              <td><strong>Tier 4 - Full Management ($499/month)</strong></td>
-              <td>$499/month</td>
-              <td>Unlimited changes, monthly redesign improvements, full SEO management, conversion optimization, A/B testing, dedicated support</td>
-            </tr>
-          </tbody>
-        </table>
-      </div>
-    </section>
-
-    <section class="pricing-notes reveal">
-      <article class="card">
-        <h2>What affects the final quote?</h2>
-        <p>
-          Scope, page count, custom features, integrations, and content readiness all
-          shape the final investment.
-        </p>
-      </article>
-      <article class="card">
-        <h2>Need help choosing a tier?</h2>
-        <p>
-          Send a quick note with your goals and Astronet Studios can recommend the most practical
-          starting point.
-        </p>
-      </article>
-    </section>
-
-    <section class="section cta reveal">
-      <h2>Want a tailored estimate?</h2>
-      <p>Share your project goals and get a tailored estimate with timeline recommendations.</p>
-      <a class="btn btn-primary" href="contact.html">Contact Us</a>
     </section>
   </main>
 
-  <footer class="site-footer">
-    <p>Astronet Studios Websites</p>
-    <p>Your Brand, Our Mission</p>
-  </footer>
-
-  <script src="script.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="portal.js"></script>
 </body>
 </html>
-
-

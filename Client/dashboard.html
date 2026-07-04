@@ -13,307 +13,153 @@
 
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Astronet Studios | Pricing Chart</title>
-  <meta name="description" content="Astronet Studios pricing chart for websites, e-commerce builds, extra pages, feature add-ons, and maintenance tiers." />
-  <link rel="canonical" href="https://astronetstudios.com/pricing.html" />
-  <meta name="robots" content="index,follow,max-image-preview:large" />
-  <meta property="og:title" content="Astronet Studios | Pricing Chart" />
-  <meta property="og:description" content="Astronet Studios pricing chart for websites, e-commerce builds, extra pages, feature add-ons, and maintenance tiers." />
-  <meta property="og:url" content="https://astronetstudios.com/pricing.html" />
-  <meta property="og:image" content="https://astronetstudios.com/Astronet%20Studios%20Logo.png" />
-  <meta property="og:type" content="website" />
-  <meta name="twitter:card" content="summary_large_image" />
-  <meta name="twitter:title" content="Astronet Studios | Pricing Chart" />
-  <meta name="twitter:description" content="Astronet Studios pricing chart for websites, e-commerce builds, extra pages, feature add-ons, and maintenance tiers." />
-  <meta name="twitter:image" content="https://astronetstudios.com/Astronet%20Studios%20Logo.png" />
+  <title>Astronet Studios | Client Dashboard</title>
+  <meta name="description" content="Astronet Studios client dashboard for invoices, subscription plans, support, and website change requests." />
+  <meta name="robots" content="noindex,nofollow,noarchive" />
+  <link rel="canonical" href="https://astronetstudios.com/dashboard.html" />
   <link rel="icon" type="image/png" href="Astronet Studios Logo.png" />
   <link rel="apple-touch-icon" href="Astronet Studios Logo.png" />
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Sora:wght@400;600;700;800&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet" />
   <link rel="stylesheet" href="styles.css" />
-  <script type="application/ld+json">
-    {
-      "@context": "https://schema.org",
-      "@type": "WebPage",
-      "name": "Astronet Studios Pricing Chart",
-      "url": "https://astronetstudios.com/pricing.html",
-      "description": "Pricing chart for websites, e-commerce builds, feature add-ons, and maintenance tiers."
-    }
-  </script>
 </head>
-<body class="pricing-page">
+<body class="portal-page" data-page="client-dashboard">
   <div class="starfield" aria-hidden="true"></div>
   <div class="bg-orb orb-a" aria-hidden="true"></div>
   <div class="bg-orb orb-b" aria-hidden="true"></div>
 
-  <header class="site-header marketing-header">
+  <header class="site-header">
     <a href="/" class="brand" aria-label="Astronet Studios home">
       <img src="Astronet Studios Logo.png" alt="Astronet Studios logo" class="brand-logo" />
     </a>
-
-    <button class="menu-toggle" aria-label="Open menu" aria-expanded="false">Menu</button>
-
-    <nav class="main-nav" aria-label="Main">
-      <a href="/">Home</a>
-      <a href="/#services-overview">Services</a>
-      <a href="/#portfolio-showcase">Portfolio</a>
-      <a href="pricing.html">Pricing</a>
-      <a href="about.html">About</a>
-      <a href="contact.html">Contact Us</a>
-    </nav>
+    <div class="portal-header-actions">
+      <p id="dashboard-user" class="portal-user-label"></p>
+      <button type="button" class="btn btn-secondary" id="change-password-button">Change Password</button>
+      <button type="button" class="btn btn-secondary" id="logout-button">Logout</button>
+    </div>
   </header>
 
-  <main class="pricing-layout" id="top">
-    <section class="hero pricing-hero reveal">
-      <p class="kicker">Pricing Chart</p>
-      <h1>Clear pricing for every build stage.</h1>
-      <p class="hero-copy">
-        Use this chart to estimate project scope, understand support options, and plan your launch budget with confidence.
-      </p>
-      <div class="hero-actions">
-        <a class="btn btn-primary" href="contact.html">Start a Project</a>
-        <a class="btn btn-secondary" href="/">Back to Home</a>
+  <main class="portal-shell">
+    <section class="portal-hero reveal show">
+      <p class="kicker">Client Dashboard</p>
+      <h1>Project visibility without email back-and-forth.</h1>
+      <p class="hero-copy">Check your website status, review invoices, request updates, and ask support questions in one place.</p>
+    </section>
+
+    <section class="client-section reveal show">
+      <div class="client-section-heading">
+        <p class="kicker">Overview</p>
+        <h2>Project Snapshot</h2>
+      </div>
+      <div class="client-overview-grid">
+        <article class="portal-card stat-card">
+          <p class="panel-title">Website Status</p>
+          <h2 id="website-status">Loading...</h2>
+          <p id="website-url" class="muted-copy"></p>
+        </article>
+        <article class="portal-card stat-card">
+          <p class="panel-title">Subscription Plan</p>
+          <h2 id="subscription-plan">Loading...</h2>
+          <p class="muted-copy">Plan changes can be requested below.</p>
+        </article>
+        <article class="portal-card stat-card">
+          <p class="panel-title">Open Invoices</p>
+          <h2 id="invoice-balance">$0.00</h2>
+          <p class="muted-copy" id="invoice-balance-caption">No unpaid invoices.</p>
+        </article>
       </div>
     </section>
 
-    <section class="section reveal">
-      <h2>Initial Project Pricing Guide</h2>
-      <div class="pricing-table-wrap">
-        <table class="pricing-table">
-          <thead>
-            <tr>
-              <th scope="col">Category</th>
-              <th scope="col">Price Range</th>
-              <th scope="col">Notes</th>
-            </tr>
-          </thead>
-          <tbody>
-            <tr>
-              <td><strong>Starter Website</strong></td>
-              <td>$1,000–$2,500</td>
-              <td>3–5 pages</td>
-            </tr>
-            <tr>
-              <td><strong>Business Website</strong></td>
-              <td>$2,500–$5,000</td>
-              <td>6–10 pages</td>
-            </tr>
-            <tr>
-              <td><strong>Premium Website</strong></td>
-              <td>$5,000–$10,000</td>
-              <td>10–20 pages</td>
-            </tr>
-            <tr>
-              <td><strong>E-Commerce Website</strong></td>
-              <td>$1,500+</td>
-              <td>Full storefront setup with catalog, checkout, and core integrations</td>
-            </tr>
-            <tr>
-              <td><strong>Extra Pages</strong></td>
-              <td>$150–$1,000 each</td>
-              <td>Final pricing depends on layout complexity and content requirements</td>
-            </tr>
-            <tr>
-              <td><strong>Feature Add-Ons</strong></td>
-              <td>$10–$5,000</td>
-              <td>Cost depends on technical complexity and integration depth</td>
-            </tr>
-            <tr>
-              <td><strong>Maintenance Tier 1 ($49/mo)</strong></td>
-              <td>$49/mo</td>
-              <td>Basic updates</td>
-            </tr>
-            <tr>
-              <td><strong>Maintenance Tier 2 ($149/mo)</strong></td>
-              <td>$149/mo</td>
-              <td>Growth support</td>
-            </tr>
-            <tr>
-              <td><strong>Maintenance Tier 3 ($299/mo)</strong></td>
-              <td>$299/mo</td>
-              <td>Business support</td>
-            </tr>
-            <tr>
-              <td><strong>Maintenance Tier 4 ($499/mo)</strong></td>
-              <td>$499/mo</td>
-              <td>Full management</td>
-            </tr>
-          </tbody>
-        </table>
+    <section class="client-section reveal show">
+      <div class="client-section-heading">
+        <p class="kicker">Billing</p>
+        <h2>Invoices and Plan Updates</h2>
+      </div>
+      <div class="client-billing-grid">
+        <article class="portal-card client-card-invoices">
+        <div class="section-heading-row">
+          <div>
+            <p class="panel-title">Invoices</p>
+            <h2>Current and previous invoices</h2>
+          </div>
+        </div>
+        <div id="client-invoices" class="table-shell"></div>
+        </article>
+
+        <article class="portal-card client-card-subscription">
+        <p class="panel-title">Change Subscription Plan</p>
+        <form id="subscription-form" class="portal-form compact-form">
+          <label>
+            <span>Requested Plan</span>
+            <select name="requestedPlan" required>
+              <option value="Tier 1 - Basic Care">Tier 1 - Basic Care ($49/month)</option>
+              <option value="Tier 2 - Growth Care">Tier 2 - Growth Care ($149/month)</option>
+              <option value="Tier 3 - Business Care">Tier 3 - Business Care ($299/month)</option>
+              <option value="Tier 4 - Full Management">Tier 4 - Full Management ($499-$1,200/month)</option>
+            </select>
+          </label>
+          <label>
+            <span>Notes</span>
+            <textarea name="notes" rows="4" placeholder="What do you need from the new plan?"></textarea>
+          </label>
+          <button type="submit" class="btn btn-primary">Submit Plan Change</button>
+          <p class="form-message" id="subscription-message" aria-live="polite"></p>
+        </form>
+        </article>
       </div>
     </section>
 
-    <section class="section reveal">
-      <h2>Extra Pages Price Guide</h2>
-      <div class="pricing-table-wrap">
-        <table class="pricing-table">
-          <thead>
-            <tr>
-              <th scope="col">Page Type</th>
-              <th scope="col">Typical Cost</th>
-            </tr>
-          </thead>
-          <tbody>
-            <tr>
-              <td><strong>Simple Page (About, Contact)</strong></td>
-              <td>$100–$200</td>
-            </tr>
-            <tr>
-              <td><strong>Service/Product Page</strong></td>
-              <td>$150–$300</td>
-            </tr>
-            <tr>
-              <td><strong>Blog/Article Template</strong></td>
-              <td>$200–$400</td>
-            </tr>
-            <tr>
-              <td><strong>Landing Page (high-conversion)</strong></td>
-              <td>$300–$800</td>
-            </tr>
-            <tr>
-              <td><strong>Portfolio/Gallery Page</strong></td>
-              <td>$300–$800</td>
-            </tr>
-            <tr>
-              <td><strong>Custom Interactive Page</strong></td>
-              <td>$500–$1,500</td>
-            </tr>
-          </tbody>
-        </table>
+    <section class="client-section reveal show">
+      <div class="client-section-heading">
+        <p class="kicker">Requests</p>
+        <h2>Ask for Updates and Support</h2>
       </div>
-    </section>
-    
-    <section class="section reveal">
-      <h2>Feature Pricing Guide</h2>
-      <div class="pricing-table-wrap">
-        <table class="pricing-table">
-          <thead>
-            <tr>
-              <th scope="col">Feature</th>
-              <th scope="col">Added Cost</th>
-              <th scope="col">Notes</th>
-            </tr>
-          </thead>
-          <tbody>
-            <tr>
-              <td><strong>Product Upload (Shopify)</strong></td>
-              <td>$5–$15 per product</td>
-              <td>Includes images, variants, tags</td>
-            </tr>
-            <tr>
-              <td><strong>App Integrations</strong></td>
-              <td>$100–$400 each</td>
-              <td>Reviews, upsells, subscriptions</td>
-            </tr>
-            <tr>
-              <td><strong>Advanced Forms</strong></td>
-              <td>$150–$500</td>
-              <td>Multi-step forms, conditional logic</td>
-            </tr>
-            <tr>
-              <td><strong>Custom Animations</strong></td>
-              <td>$150–$600</td>
-              <td>Scroll effects, hover effects, transitions</td>
-            </tr>
-            <tr>
-              <td><strong>SEO Setup</strong></td>
-              <td>$200–$800</td>
-              <td>Metadata, indexing, speed optimization</td>
-            </tr>
-            <tr>
-              <td><strong>Booking System</strong></td>
-              <td>$300–$1,200</td>
-              <td>Calendars, scheduling, notifications</td>
-            </tr>
-            <tr>
-              <td><strong>Branding Package</strong></td>
-              <td>$300–$1,000</td>
-              <td>Logo, color palette, typography</td>
-            </tr>
-            <tr>
-              <td><strong>Membership/Login System</strong></td>
-              <td>$800–$3,000</td>
-              <td>User accounts, dashboards</td>
-            </tr>
-            <tr>
-              <td><strong>Custom Dashboard</strong></td>
-              <td>$1,000–$5,000</td>
-              <td>Admin panels, analytics</td>
-            </tr>
-          </tbody>
-        </table>
+      <div class="client-requests-grid">
+        <article class="portal-card">
+        <p class="panel-title">Submit a Website Change</p>
+        <form id="change-request-form" class="portal-form compact-form">
+          <label>
+            <span>Request Title</span>
+            <input type="text" name="title" required placeholder="Homepage hero update" />
+          </label>
+          <label>
+            <span>Priority</span>
+            <select name="priority">
+              <option value="low">Low</option>
+              <option value="normal" selected>Normal</option>
+              <option value="high">High</option>
+            </select>
+          </label>
+          <label>
+            <span>Details</span>
+            <textarea name="description" rows="5" required placeholder="Describe the change you want made."></textarea>
+          </label>
+          <button type="submit" class="btn btn-primary">Submit Change Request</button>
+          <p class="form-message" id="change-request-message" aria-live="polite"></p>
+        </form>
+        </article>
+
+        <article class="portal-card">
+        <p class="panel-title">Help Support</p>
+        <form id="support-form" class="portal-form compact-form">
+          <label>
+            <span>Subject</span>
+            <input type="text" name="subject" required placeholder="Question about analytics" />
+          </label>
+          <label>
+            <span>Your Question</span>
+            <textarea name="message" rows="5" required placeholder="Ask anything related to your website or service."></textarea>
+          </label>
+          <button type="submit" class="btn btn-primary">Submit Question</button>
+          <p class="form-message" id="support-message" aria-live="polite"></p>
+        </form>
+        </article>
       </div>
-    </section>
-
-    <section class="section reveal">
-      <h2>Maintenance &amp; Change Packages (Monthly)</h2>
-      <div class="pricing-table-wrap">
-        <table class="pricing-table">
-          <thead>
-            <tr>
-              <th scope="col">Tier</th>
-              <th scope="col">Monthly Cost</th>
-              <th scope="col">What's Included</th>
-            </tr>
-          </thead>
-          <tbody>
-            <tr>
-              <td><strong>Tier 1 - Basic Care ($49/month)</strong></td>
-              <td>$49/month</td>
-              <td>Minor text/image updates, security checks, uptime monitoring</td>
-            </tr>
-            <tr>
-              <td><strong>Tier 2 - Growth Care ($149/month)</strong></td>
-              <td>$149/month</td>
-              <td>Up to 3 changes per month, speed optimization, monthly SEO check, bug fixes</td>
-            </tr>
-            <tr>
-              <td><strong>Tier 3 - Business Care ($299/month)</strong></td>
-              <td>$299/month</td>
-              <td>Up to 10 changes per month, new sections/pages, priority support, monthly analytics report</td>
-            </tr>
-            <tr>
-              <td><strong>Tier 4 - Full Management ($499/month)</strong></td>
-              <td>$499/month</td>
-              <td>Unlimited changes, monthly redesign improvements, full SEO management, conversion optimization, A/B testing, dedicated support</td>
-            </tr>
-          </tbody>
-        </table>
-      </div>
-    </section>
-
-    <section class="pricing-notes reveal">
-      <article class="card">
-        <h2>What affects the final quote?</h2>
-        <p>
-          Scope, page count, custom features, integrations, and content readiness all
-          shape the final investment.
-        </p>
-      </article>
-      <article class="card">
-        <h2>Need help choosing a tier?</h2>
-        <p>
-          Send a quick note with your goals and Astronet Studios can recommend the most practical
-          starting point.
-        </p>
-      </article>
-    </section>
-
-    <section class="section cta reveal">
-      <h2>Want a tailored estimate?</h2>
-      <p>Share your project goals and get a tailored estimate with timeline recommendations.</p>
-      <a class="btn btn-primary" href="contact.html">Contact Us</a>
     </section>
   </main>
 
-  <footer class="site-footer">
-    <p>Astronet Studios Websites</p>
-    <p>Your Brand, Our Mission</p>
-  </footer>
-
-  <script src="script.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="portal.js"></script>
 </body>
 </html>
-
-
