@@ -2060,6 +2060,11 @@ app.get('/health', (_req, res) => {
 app.get('*', (req, res) => {
   const requestPath = req.path.toLowerCase();
 
+  if (requestPath === '/index.html' || requestPath === '/index') {
+    res.redirect(301, '/');
+    return;
+  }
+
   if (requestPath === '/admin' || requestPath === '/admin.html') {
     res.sendFile(path.join(clientDir, 'admin.html'));
     return;
