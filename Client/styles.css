@@ -1069,52 +1069,6 @@ main {
   flex-wrap: wrap;
 }
 
-.contract-preview-content {
-  border: 1px solid rgba(66, 165, 245, 0.24);
-  border-radius: 12px;
-  background: rgba(9, 15, 35, 0.82);
-  padding: 0.9rem;
-  display: grid;
-  gap: 0.7rem;
-  color: #dfe9ff;
-}
-
-.contract-preview-content p {
-  margin: 0;
-  color: var(--muted);
-  line-height: 1.45;
-}
-
-.contract-preview-grid {
-  display: grid;
-  gap: 0.55rem;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-}
-
-.contract-preview-field {
-  border: 1px solid rgba(66, 165, 245, 0.2);
-  border-radius: 10px;
-  padding: 0.65rem;
-  background: rgba(13, 25, 53, 0.64);
-}
-
-.contract-preview-field strong {
-  display: block;
-  color: #f5f8ff;
-  margin-bottom: 0.25rem;
-}
-
-.contract-preview-section {
-  border-top: 1px solid rgba(66, 165, 245, 0.24);
-  padding-top: 0.7rem;
-}
-
-.contract-preview-section h4 {
-  margin: 0 0 0.35rem;
-  color: #f5f8ff;
-  font-size: 0.98rem;
-}
-
 @keyframes floatA {
   0%,
   100% {
@@ -1270,10 +1224,6 @@ main {
     bottom: 1rem;
     width: 44px;
     height: 44px;
-  }
-
-  .contract-preview-grid {
-    grid-template-columns: 1fr;
   }
 
   .portal-modal-card {

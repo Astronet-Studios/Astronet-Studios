@@ -1121,17 +1121,6 @@ function bindAdminForms() {
   const addContractExtraPageTypeButton = document.getElementById('add-contract-extra-page-type');
   const addContractExtraFeatureTypeButton = document.getElementById('add-contract-extra-feature-type');
   const contractClientSelect = document.getElementById('contract-client-select');
-  const contractPreviewButton = document.getElementById('contract-preview-button');
-  const contractPreviewModal = document.getElementById('contract-preview-modal');
-  const contractPreviewContent = document.getElementById('contract-preview-content');
-  const contractPreviewClose = document.getElementById('contract-preview-close');
-  const contractPreviewCancel = document.getElementById('contract-preview-cancel');
-  const contractPreviewConfirm = document.getElementById('contract-preview-confirm');
-  let pendingContractPayload = null;
-
-  if (contractPreviewModal) {
-    contractPreviewModal.hidden = true;
-  }
 
   const recalcInvoiceTotal = () => {
     const payload = Object.fromEntries(new FormData(invoiceForm).entries());
@@ -1227,13 +1216,18 @@ function bindAdminForms() {
     recalcContractDeductible();
   };
 
-  const closeContractPreview = () => {
-    if (!contractPreviewModal) {
-      return;
-    }
-
-    contractPreviewModal.hidden = true;
-    pendingContractPayload = null;
+  const buildContractPayload = () => {
+    const payload = Object.fromEntries(new FormData(contractForm).entries());
+    payload.extraPageSelections = collectInvoiceOptionSelections(contractExtraPagesRows);
+    payload.extraFeatureSelections = collectInvoiceOptionSelections(contractExtraFeaturesRows);
+    const mergedPageSelections = mergeInvoiceOptionSelections(payload.extraPageSelections);
+    const mergedFeatureSelections = mergeInvoiceOptionSelections(payload.extraFeatureSelections);
+    payload.extraPagesCount = mergedPageSelections.reduce((sum, entry) => sum + entry.count, 0);
+    payload.extraFeaturesCount = mergedFeatureSelections.reduce((sum, entry) => sum + entry.count, 0);
+    payload.extraPagesType = mergedPageSelections.map((entry) => `${entry.type} x${entry.count}`).join(', ');
+    payload.extraFeaturesType = mergedFeatureSelections.map((entry) => `${entry.type} x${entry.count}`).join(', ');
+    delete payload.deductibleDuePreview;
+    return payload;
   };
 
   const fillContractClientDetails = () => {
@@ -1273,32 +1267,6 @@ function bindAdminForms() {
       setMessage(messageNode, error.message, true);
       return false;
     }
-  };
-
-  const openContractPreview = () => {
-    if (!contractPreviewModal || !contractPreviewContent) {
-      return;
-    }
-
-    if (!contractForm.reportValidity()) {
-      return;
-    }
-
-    const payload = Object.fromEntries(new FormData(contractForm).entries());
-    payload.extraPageSelections = collectInvoiceOptionSelections(contractExtraPagesRows);
-    payload.extraFeatureSelections = collectInvoiceOptionSelections(contractExtraFeaturesRows);
-    const mergedPageSelections = mergeInvoiceOptionSelections(payload.extraPageSelections);
-    const mergedFeatureSelections = mergeInvoiceOptionSelections(payload.extraFeatureSelections);
-    payload.extraPagesCount = mergedPageSelections.reduce((sum, entry) => sum + entry.count, 0);
-    payload.extraFeaturesCount = mergedFeatureSelections.reduce((sum, entry) => sum + entry.count, 0);
-    payload.extraPagesType = mergedPageSelections.map((entry) => `${entry.type} x${entry.count}`).join(', ');
-    payload.extraFeaturesType = mergedFeatureSelections.map((entry) => `${entry.type} x${entry.count}`).join(', ');
-    delete payload.deductibleDuePreview;
-
-    const selectedClient = adminClientState.find((entry) => entry.id === payload.clientId);
-    contractPreviewContent.innerHTML = buildContractPreviewMarkup(payload, selectedClient);
-    pendingContractPayload = payload;
-    contractPreviewModal.hidden = false;
   };
 
   [
@@ -1399,42 +1367,6 @@ function bindAdminForms() {
 
   if (contractClientSelect) {
     contractClientSelect.addEventListener('change', fillContractClientDetails);
-  }
-
-  if (contractPreviewButton) {
-    contractPreviewButton.addEventListener('click', openContractPreview);
-  }
-
-  if (contractPreviewClose) {
-    contractPreviewClose.addEventListener('click', closeContractPreview);
-  }
-
-  if (contractPreviewCancel) {
-    contractPreviewCancel.addEventListener('click', closeContractPreview);
-  }
-
-  if (contractPreviewModal) {
-    contractPreviewModal.addEventListener('click', (event) => {
-      if (event.target && event.target.dataset && event.target.dataset.closeContractPreview === 'true') {
-        closeContractPreview();
-      }
-    });
-  }
-
-  if (contractPreviewConfirm) {
-    contractPreviewConfirm.addEventListener('click', async () => {
-      if (!pendingContractPayload) {
-        closeContractPreview();
-        return;
-      }
-
-      contractPreviewConfirm.disabled = true;
-      const created = await createContract(pendingContractPayload);
-      contractPreviewConfirm.disabled = false;
-      if (created) {
-        closeContractPreview();
-      }
-    });
   }
 
   recalcInvoiceTotal();
@@ -1539,7 +1471,12 @@ function bindAdminForms() {
 
   contractForm.addEventListener('submit', async (event) => {
     event.preventDefault();
-    openContractPreview();
+    if (!contractForm.reportValidity()) {
+      return;
+    }
+
+    const payload = buildContractPayload();
+    await createContract(payload);
   });
 }
 
@@ -1595,117 +1532,6 @@ function escapeHtml(value) {
     .replace(/>/g, '&gt;')
     .replace(/"/g, '&quot;')
     .replace(/'/g, '&#39;');
-}
-
-function buildContractPreviewMarkup(payload, clientRecord) {
-  const clientName = clientRecord?.profile?.full_name || clientRecord?.profile?.company_name || 'Client';
-  const contractSections = [
-    '1. Parties',
-    '2. Project',
-    '3. Project Price',
-    '4. Payment Terms',
-    '5. Scope of Work',
-    '6. Revisions',
-    '7. Client Responsibilities',
-    '8. Timeline',
-    '9. Intellectual Property',
-    '10. Domain & Hosting',
-    '11. Maintenance',
-    '12. Launch',
-    '13. Cancellation',
-    '14. Warranty',
-    '15. Limitation of Liability',
-    '16. Portfolio Rights',
-    '17. Governing Law',
-    '18. Entire Agreement',
-  ];
-
-  const sectionMarkup = contractSections.map((section) => `<li>${escapeHtml(section)}</li>`).join('');
-  const contractTotals = calculateContractTotals({
-    packageName: payload.packageName,
-    extraPageSelections: payload.extraPageSelections,
-    extraFeatureSelections: payload.extraFeatureSelections,
-  });
-
-  return `
-    <p>This preview confirms the values that will be used to generate the PDF agreement and save the contract record.</p>
-    <div class="contract-preview-grid">
-      <div class="contract-preview-field">
-        <strong>Client</strong>
-        <span>${escapeHtml(clientName)}</span>
-      </div>
-      <div class="contract-preview-field">
-        <strong>Client Email</strong>
-        <span>${escapeHtml(clientRecord?.profile?.email || 'Not provided')}</span>
-      </div>
-      <div class="contract-preview-field">
-        <strong>Project Name</strong>
-        <span>${escapeHtml(payload.projectName || payload.projectTitle || 'Not provided')}</span>
-      </div>
-      <div class="contract-preview-field">
-        <strong>Package</strong>
-        <span>${escapeHtml(payload.packageName || 'Not provided')}</span>
-      </div>
-      <div class="contract-preview-field">
-        <strong>Total Cost</strong>
-        <span>${formatCurrency(contractTotals.total)}</span>
-      </div>
-      <div class="contract-preview-field">
-        <strong>Deposit %</strong>
-        <span>25%</span>
-      </div>
-      <div class="contract-preview-field">
-        <strong>Deductible Due</strong>
-        <span>${formatCurrency((Number(payload.totalCostDollars || 0) * 25) / 100)}</span>
-      </div>
-      <div class="contract-preview-field">
-        <strong>Timeline</strong>
-        <span>${escapeHtml(payload.timeline || 'Not provided')}</span>
-      </div>
-      <div class="contract-preview-field">
-        <strong>Extra Pages</strong>
-        <span>${escapeHtml(payload.extraPagesCount || '0')}</span>
-      </div>
-      <div class="contract-preview-field">
-        <strong>Page Type</strong>
-        <span>${escapeHtml(payload.extraPagesType || 'None')}</span>
-      </div>
-      <div class="contract-preview-field">
-        <strong>Extra Features</strong>
-        <span>${escapeHtml(payload.extraFeaturesCount || '0')}</span>
-      </div>
-      <div class="contract-preview-field">
-        <strong>Feature Type</strong>
-        <span>${escapeHtml(payload.extraFeaturesType || 'None')}</span>
-      </div>
-      <div class="contract-preview-field">
-        <strong>Invoice Due Term</strong>
-        <span>14 days</span>
-      </div>
-      <div class="contract-preview-field">
-        <strong>Revision Pricing</strong>
-        <span>$25/hour or $100/revision</span>
-      </div>
-      <div class="contract-preview-field">
-        <strong>Warranty</strong>
-        <span>30 day(s)</span>
-      </div>
-      <div class="contract-preview-field">
-        <strong>Governing Law</strong>
-        <span>New York</span>
-      </div>
-    </div>
-    <section class="contract-preview-section">
-      <h4>Agreement Sections Included</h4>
-      <ul>
-        ${sectionMarkup}
-      </ul>
-    </section>
-    <section class="contract-preview-section">
-      <h4>Terms Override</h4>
-      <p>${payload.termsText ? 'Custom terms text will be used for this contract.' : 'No override entered. The default full Astronet agreement text will be used.'}</p>
-    </section>
-  `;
 }
 
 function buildInvoiceDescription(payload) {

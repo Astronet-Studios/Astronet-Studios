@@ -228,7 +228,6 @@
             <input type="text" name="deductibleDuePreview" readonly value="$250.00" />
           </label>
           <div class="form-button-row">
-            <button type="button" class="btn btn-secondary" id="contract-preview-button">Preview Contract</button>
             <button type="submit" class="btn btn-primary">Create Contract</button>
           </div>
           <p class="form-message" id="contract-form-message" aria-live="polite"></p>
@@ -295,21 +294,6 @@
       </div>
     </section>
   </main>
-
-  <div id="contract-preview-modal" class="portal-modal" hidden>
-    <div class="portal-modal-backdrop" data-close-contract-preview="true"></div>
-    <article class="portal-modal-card" role="dialog" aria-modal="true" aria-labelledby="contract-preview-title">
-      <header class="portal-modal-header">
-        <h3 id="contract-preview-title">Contract Preview</h3>
-        <button type="button" class="btn btn-secondary btn-small" id="contract-preview-close">Close</button>
-      </header>
-      <div id="contract-preview-content" class="contract-preview-content"></div>
-      <footer class="portal-modal-footer">
-        <button type="button" class="btn btn-secondary" id="contract-preview-cancel">Cancel</button>
-        <button type="button" class="btn btn-primary" id="contract-preview-confirm">Confirm and Create</button>
-      </footer>
-    </article>
-  </div>
 
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <script src="portal.js"></script>
