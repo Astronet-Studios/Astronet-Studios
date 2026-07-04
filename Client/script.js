@@ -84,3 +84,45 @@ if (contactPageForm && contactPageMessage) {
     }
   });
 }
+
+function enhanceLongCopyBlocks() {
+  const paragraphs = document.querySelectorAll('main p.hero-copy');
+
+  paragraphs.forEach((paragraph) => {
+    if (paragraph.dataset.copyEnhanced === 'true') {
+      return;
+    }
+
+    if (paragraph.querySelector('*')) {
+      return;
+    }
+
+    const rawText = paragraph.textContent.replace(/\s+/g, ' ').trim();
+    if (rawText.length < 240) {
+      return;
+    }
+
+    const sentences = rawText
+      .match(/[^.!?]+[.!?]+|[^.!?]+$/g)
+      ?.map((sentence) => sentence.trim())
+      .filter(Boolean);
+
+    if (!sentences || sentences.length < 3) {
+      return;
+    }
+
+    paragraph.textContent = '';
+    paragraph.classList.add('copy-refined');
+    paragraph.dataset.copyEnhanced = 'true';
+
+    for (let index = 0; index < sentences.length; index += 2) {
+      const chunk = sentences.slice(index, index + 2).join(' ');
+      const chunkNode = document.createElement('span');
+      chunkNode.className = 'copy-chunk';
+      chunkNode.textContent = chunk;
+      paragraph.appendChild(chunkNode);
+    }
+  });
+}
+
+enhanceLongCopyBlocks();
