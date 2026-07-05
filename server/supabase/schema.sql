@@ -13,12 +13,15 @@ create table if not exists public.profiles (
 create table if not exists public.client_accounts (
   id uuid primary key default gen_random_uuid(),
   profile_id uuid not null unique references public.profiles (id) on delete cascade,
+  phone_number text,
   website_url text,
   website_status text not null default 'active' check (website_status in ('active', 'maintenance', 'offline')),
   subscription_plan text not null,
   created_at timestamptz not null default timezone('utc', now()),
   updated_at timestamptz not null default timezone('utc', now())
 );
+
+alter table public.client_accounts add column if not exists phone_number text;
 
 create table if not exists public.invoices (
   id uuid primary key default gen_random_uuid(),
@@ -49,14 +52,38 @@ create table if not exists public.contracts (
   client_id uuid not null references public.client_accounts (id) on delete cascade,
   contract_number text not null unique,
   project_title text not null,
+  project_name text,
+  package_name text,
+  project_description text,
   site_type text,
   timeline text,
+  estimated_completion_weeks integer,
+  extra_pages_count integer not null default 0,
+  extra_pages_type text,
+  extra_features_count integer not null default 0,
+  extra_features_type text,
+  subtotal_dollars numeric(10,2),
+  tax_dollars numeric(10,2) not null default 0,
   total_cost_dollars numeric(10,2) not null check (total_cost_dollars > 0),
   deductible_percent numeric(5,2) not null default 25,
   deductible_due_dollars numeric(10,2) not null check (deductible_due_dollars >= 0),
   remaining_balance_dollars numeric(10,2) not null check (remaining_balance_dollars >= 0),
+  payment_due_days integer not null default 14,
+  late_fee_flat_dollars numeric(10,2) not null default 25,
+  late_fee_percent_monthly numeric(6,2) not null default 1.5,
+  revision_rounds integer not null default 2,
+  additional_revision_hourly_rate numeric(10,2) not null default 0,
+  additional_revision_per_revision_rate numeric(10,2) not null default 0,
+  client_business_name text,
+  client_address text,
+  client_phone text,
+  client_email text,
+  governing_law_state text not null default 'New York',
+  warranty_days integer not null default 30,
   terms_text text,
   status text not null default 'sent' check (status in ('draft', 'sent', 'signed', 'cancelled')),
+  square_payment_link_id text,
+  square_payment_link_url text,
   esign_provider text,
   esign_signature_request_id text unique,
   esign_status text,
@@ -80,6 +107,30 @@ alter table public.contracts add column if not exists esign_signature_request_id
 alter table public.contracts add column if not exists esign_status text;
 alter table public.contracts add column if not exists esign_signed_file_url text;
 alter table public.contracts add column if not exists esign_last_event_at timestamptz;
+alter table public.contracts add column if not exists project_name text;
+alter table public.contracts add column if not exists package_name text;
+alter table public.contracts add column if not exists project_description text;
+alter table public.contracts add column if not exists estimated_completion_weeks integer;
+alter table public.contracts add column if not exists extra_pages_count integer not null default 0;
+alter table public.contracts add column if not exists extra_pages_type text;
+alter table public.contracts add column if not exists extra_features_count integer not null default 0;
+alter table public.contracts add column if not exists extra_features_type text;
+alter table public.contracts add column if not exists subtotal_dollars numeric(10,2);
+alter table public.contracts add column if not exists tax_dollars numeric(10,2) not null default 0;
+alter table public.contracts add column if not exists payment_due_days integer not null default 14;
+alter table public.contracts add column if not exists late_fee_flat_dollars numeric(10,2) not null default 25;
+alter table public.contracts add column if not exists late_fee_percent_monthly numeric(6,2) not null default 1.5;
+alter table public.contracts add column if not exists revision_rounds integer not null default 2;
+alter table public.contracts add column if not exists additional_revision_hourly_rate numeric(10,2) not null default 0;
+alter table public.contracts add column if not exists additional_revision_per_revision_rate numeric(10,2) not null default 0;
+alter table public.contracts add column if not exists client_business_name text;
+alter table public.contracts add column if not exists client_address text;
+alter table public.contracts add column if not exists client_phone text;
+alter table public.contracts add column if not exists client_email text;
+alter table public.contracts add column if not exists governing_law_state text not null default 'New York';
+alter table public.contracts add column if not exists warranty_days integer not null default 30;
+alter table public.contracts add column if not exists square_payment_link_id text;
+alter table public.contracts add column if not exists square_payment_link_url text;
 create unique index if not exists contracts_esign_signature_request_id_idx
 on public.contracts (esign_signature_request_id)
 where esign_signature_request_id is not null;

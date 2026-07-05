@@ -50,19 +50,87 @@ const extraFeatureTypePricing = {
   'Custom Dashboard': 2500,
 };
 const defaultContractTerms = [
-  '1. Project Scope: The scope of work is based on the approved proposal and signed contract.',
-  '2. Deposit: A deductible equal to 25% of the total project cost is due before work begins.',
-  '3. Timeline: Timeline estimates are based on timely client feedback and content delivery.',
-  '4. Revisions: Two revision rounds are included unless otherwise documented in writing.',
-  '5. Ownership: Final deliverables are transferred after full payment is received.',
-  '6. Support: Post-launch support is available through active monthly maintenance plans.',
-  '7. Termination: Either party may terminate with written notice; completed work remains billable.',
+  'ASTRONET STUDIOS Website Design & Development Agreement',
+  '',
+  'This Agreement is entered into between Astronet Studios (Developer) and the Client listed in this contract.',
+  '',
+  '1. Project',
+  'Developer agrees to design and develop the website project described in this contract.',
+  '',
+  '2. Project Price and Deposit',
+  'A 25% deposit is required before work begins. The remaining balance is due before the website is published or transferred to production.',
+  '',
+  '3. Payment Terms',
+  'Invoices are due within 14 days unless otherwise agreed. Late invoices may incur a late fee of $25 or 1.5% per month, whichever is permitted by applicable law.',
+  '',
+  '4. Scope of Work',
+  'Only services listed in the approved proposal are included. Additional work outside the original scope requires written approval and may incur added charges.',
+  '',
+  '5. Revisions',
+  'Two revision rounds are included unless otherwise specified in writing.',
+  '',
+  '6. Client Responsibilities',
+  'Client agrees to provide content, branding, access, and approvals promptly. Delays may extend project timeline.',
+  '',
+  '7. Timeline',
+  'Delivery dates are estimates and may change due to client delays, third-party outages, hosting issues, or scope changes.',
+  '',
+  '8. Intellectual Property',
+  'Client retains ownership of their logos, images, written content, trademarks, and branding. Astronet Studios retains ownership of proprietary frameworks, source code, templates, components, internal tools, reusable libraries, backend systems, and custom CMS software unless otherwise agreed in writing. Upon full payment, Client receives a perpetual license to use the completed website for business purposes.',
+  '',
+  '9. Domain and Hosting',
+  'Unless otherwise agreed, Client owns domain name, Cloudflare account, and business email accounts. Astronet Studios may manage these with authorization. If Astronet Studios provides hosting, the website remains on Astronet Studios infrastructure while hosting services remain active.',
+  '',
+  '10. Maintenance',
+  'Maintenance is optional and billed separately from project cost.',
+  '',
+  '11. Launch',
+  'Website launch requires final approval, final payment, and required account access.',
+  '',
+  '12. Cancellation',
+  'Either party may terminate this Agreement in writing. Initial deposit is non-refundable once work has begun. Client remains responsible for completed work performed prior to termination.',
+  '',
+  '13. Warranty',
+  'Astronet Studios warrants substantial functionality as described upon delivery for 30 days after launch. Warranty excludes third-party software changes, hosting issues outside our control, client modifications, and browser updates released after delivery.',
+  '',
+  '14. Limitation of Liability',
+  'Astronet Studios is not liable for indirect, incidental, consequential, or lost-profit damages. Total liability will not exceed the amount paid under this Agreement.',
+  '',
+  '15. Portfolio Rights',
+  'Unless otherwise agreed, Astronet Studios may display completed work in portfolio and marketing materials without disclosing confidential information.',
+  '',
+  '16. Governing Law',
+  'This Agreement is governed by the laws of the State of New York.',
+  '',
+  '17. Entire Agreement',
+  'This document is the complete agreement between both parties. Changes must be in writing and signed by both parties.',
 ].join('\n');
 const contractBusinessName = process.env.CONTRACT_BUSINESS_NAME || 'Astronet Studios';
 const contractBusinessSigner = process.env.CONTRACT_SIGNER_NAME || 'Joseph Kadet';
 const contractBusinessSignatureDisplay = process.env.CONTRACT_SIGNATURE_DISPLAY_NAME || contractBusinessSigner;
 const contractBusinessRole = process.env.CONTRACT_SIGNER_ROLE || 'Owner|Partner';
 const contractSignatureFontPath = process.env.CONTRACT_SIGNATURE_FONT_PATH || '';
+const fixedContractDeductiblePercent = 25;
+const fixedContractPaymentDueDays = 14;
+const fixedContractRevisionHourlyRate = 25;
+const fixedContractRevisionPerRevisionRate = 100;
+const fixedContractLateFeeFlatDollars = 25;
+const fixedContractLateFeePercentMonthly = 1.5;
+const fixedContractWarrantyDays = 30;
+const standardNySalesTaxRate = 0.04;
+const standardNySalesTaxLabel = `${(standardNySalesTaxRate * 100).toFixed(0)}%`;
+const adminContractSelectFields = [
+  'id',
+  'client_id',
+  'contract_number',
+  'project_title',
+  'status',
+  'esign_status',
+  'esign_signature_request_id',
+  'total_cost_dollars',
+  'deductible_due_dollars',
+  'created_at',
+].join(',');
 const parsedContractSignatureLetterSpacing = Number(process.env.CONTRACT_SIGNATURE_LETTER_SPACING);
 const contractSignatureLetterSpacing = Number.isFinite(parsedContractSignatureLetterSpacing)
   ? parsedContractSignatureLetterSpacing
@@ -163,6 +231,112 @@ function formatCurrency(value) {
   }).format(parseMoney(value, 0));
 }
 
+function cleanContractValue(value, fallback = '') {
+  const normalized = String(value || '').trim();
+  return normalized || fallback;
+}
+
+function buildContractAgreementText(contract, clientAccount, profile) {
+  const projectName = cleanContractValue(contract.project_name, cleanContractValue(contract.project_title, 'Website Project'));
+  const packageName = cleanContractValue(contract.package_name, cleanContractValue(contract.site_type, 'Not specified'));
+  const projectDescription = cleanContractValue(contract.project_description, 'See approved proposal and project notes.');
+  const clientName = cleanContractValue(profile.full_name, profile.company_name || profile.email || 'Client');
+  const clientBusinessName = cleanContractValue(profile.company_name, 'Not provided');
+  const clientPhone = cleanContractValue(clientAccount.phone_number, cleanContractValue(profile.phone, 'Not provided'));
+  const clientEmail = cleanContractValue(profile.email, 'Not provided');
+  const revisionRounds = 2;
+  const revisionHourlyRate = fixedContractRevisionHourlyRate;
+  const revisionPerRevisionRate = fixedContractRevisionPerRevisionRate;
+  const paymentDueDays = fixedContractPaymentDueDays;
+  const lateFeeFlat = fixedContractLateFeeFlatDollars;
+  const lateFeePercent = fixedContractLateFeePercentMonthly;
+  const governingLawState = 'New York';
+  const warrantyDays = fixedContractWarrantyDays;
+  const completionText = cleanContractValue(contract.timeline, 'Not specified');
+
+  return [
+    'ASTRONET STUDIOS Website Design & Development Agreement',
+    `Contract #: ${cleanContractValue(contract.contract_number)}`,
+    `Date: ${new Date(contract.created_at || Date.now()).toLocaleDateString('en-US')}`,
+    '',
+    '1. Parties',
+    'This Website Design & Development Agreement ("Agreement") is entered into between:',
+    `Astronet Studios ("Developer") and Client Name: ${clientName}`,
+    `Business Name: ${clientBusinessName}`,
+    `Phone: ${clientPhone}`,
+    `Email: ${clientEmail}`,
+    '',
+    '2. Project',
+    'Developer agrees to design and develop the following:',
+    `Project Name: ${projectName}`,
+    `Package: ${packageName}`,
+    `Project Description: ${projectDescription}`,
+    '',
+    '3. Project Price',
+    `Total Project Cost: ${formatCurrency(contract.total_cost_dollars)}`,
+    `Deposit Required (${contract.deductible_percent}%): ${formatCurrency(contract.deductible_due_dollars)}`,
+    `Balance Due: ${formatCurrency(contract.remaining_balance_dollars)}`,
+    'Work begins after the deposit has been received. Remaining balance is due before website publication or production transfer.',
+    '',
+    '4. Payment Terms',
+    'Payments may be made by Square, Check, Credit Card, or other approved payment methods.',
+    `Invoices are due within ${paymentDueDays} days unless otherwise agreed.`,
+    'Astronet Studios may suspend work until overdue invoices are paid.',
+    `Late invoices may incur a late fee of ${formatCurrency(lateFeeFlat)} or ${lateFeePercent}% per month, whichever is permitted by applicable law.`,
+    '',
+    '5. Scope of Work',
+    'This agreement includes only services listed in the approved proposal. Additional work outside the original scope requires written approval and may incur additional charges.',
+    '',
+    '6. Revisions',
+    `Included revision rounds: ${revisionRounds}.`,
+    `Additional revisions are billed at ${formatCurrency(revisionHourlyRate)} per hour or ${formatCurrency(revisionPerRevisionRate)} per revision.`,
+    '',
+    '7. Client Responsibilities',
+    'Client agrees to provide logos, images, written content, branding, account access, feedback, and required approvals.',
+    'Project timelines may be extended if required information is not provided promptly.',
+    '',
+    '8. Timeline',
+    `Estimated completion: ${completionText}.`,
+    'Delivery dates are estimates and may change due to client delays, third-party outages, hosting issues, or scope changes.',
+    '',
+    '9. Intellectual Property',
+    'Client retains ownership of logos, images provided by client, written content, trademarks, and business branding.',
+    'Astronet Studios retains ownership of source code, proprietary frameworks, templates, components, internal software, development tools, reusable libraries, backend systems, and custom CMS software unless otherwise agreed in writing.',
+    'This Agreement does not transfer ownership of Astronet Studios proprietary software or development framework.',
+    '',
+    '10. Domain & Hosting',
+    'Unless otherwise agreed, Client owns domain name, Cloudflare account, and business email accounts.',
+    'Astronet Studios may manage these accounts with Client authorization.',
+    'If Astronet Studios provides hosting, website remains hosted on Astronet Studios infrastructure while hosting services remain active.',
+    '',
+    '11. Maintenance',
+    'Maintenance is optional and separate from project cost. Plans may include security updates, backups, bug fixes, content updates, technical support, and performance monitoring.',
+    '',
+    '12. Launch',
+    'Website will be published after final approval, final payment, and required account access are provided.',
+    '',
+    '13. Cancellation',
+    'Either party may terminate this Agreement in writing.',
+    'Initial deposit is non-refundable once work has begun.',
+    '',
+    '14. Warranty',
+    `Astronet Studios warrants substantial functionality as described upon delivery for ${warrantyDays} days after launch.`,
+    'Warranty does not cover third-party software changes, hosting issues outside our control, client modifications, or browser updates released after delivery.',
+    '',
+    '15. Limitation of Liability',
+    'Astronet Studios shall not be liable for indirect, incidental, consequential, or lost-profit damages arising from website use.',
+    '',
+    '16. Portfolio Rights',
+    'Unless otherwise agreed, Astronet Studios may display the completed project in portfolio and marketing materials. Confidential information will never be disclosed.',
+    '',
+    '17. Governing Law',
+    `This Agreement is governed by the laws of the State of ${governingLawState}.`,
+    '',
+    '18. Entire Agreement',
+    'This document represents the complete agreement between both parties. Any changes must be made in writing and signed by both parties.',
+  ].join('\n');
+}
+
 function parseLineItems(input) {
   if (!Array.isArray(input)) {
     return [];
@@ -242,8 +416,8 @@ function buildInvoiceDetails(body) {
   }
 
   const subtotal = toCurrencyAmount(invoiceItems.reduce((sum, entry) => sum + parseMoney(entry.total_dollars, 0), 0));
-  const taxDollars = toCurrencyAmount(body.taxDollars || 0);
-  const total = toCurrencyAmount(body.totalDollars || subtotal + taxDollars);
+  const taxDollars = toCurrencyAmount(subtotal * standardNySalesTaxRate);
+  const total = toCurrencyAmount(subtotal + taxDollars);
 
   return {
     maintenanceTier: String(body.maintenanceTier || '').trim(),
@@ -256,6 +430,62 @@ function buildInvoiceDetails(body) {
     subtotalDollars: subtotal,
     taxDollars,
     totalDollars: total,
+  };
+}
+
+function mergeContractOptionSelections(input) {
+  if (!Array.isArray(input)) {
+    return [];
+  }
+
+  const totalsByType = new Map();
+
+  input.forEach((entry) => {
+    const type = String(entry.type || '').trim();
+    const count = parseCount(entry.count);
+
+    if (!type || count <= 0) {
+      return;
+    }
+
+    const existing = totalsByType.get(type) || 0;
+    totalsByType.set(type, existing + count);
+  });
+
+  return Array.from(totalsByType.entries()).map(([type, count]) => ({ type, count }));
+}
+
+function buildContractPricingDetails(body) {
+  const packageName = String(body.packageName || body.siteType || '').trim();
+  const pageSelections = mergeContractOptionSelections(body.extraPageSelections);
+  const featureSelections = mergeContractOptionSelections(body.extraFeatureSelections);
+  const pageSummary = pageSelections.map((entry) => `${entry.type} x${entry.count}`).join(', ');
+  const featureSummary = featureSelections.map((entry) => `${entry.type} x${entry.count}`).join(', ');
+
+  let subtotal = siteTypeBasePricing[packageName] || 0;
+
+  pageSelections.forEach((entry) => {
+    const unit = extraPageTypePricing[entry.type] || 0;
+    subtotal += unit * entry.count;
+  });
+
+  featureSelections.forEach((entry) => {
+    const unit = extraFeatureTypePricing[entry.type] || 0;
+    subtotal += unit * entry.count;
+  });
+
+  const taxDollars = toCurrencyAmount(subtotal * standardNySalesTaxRate);
+  const total = toCurrencyAmount(subtotal + taxDollars);
+
+  return {
+    packageName,
+    subtotalDollars: toCurrencyAmount(subtotal),
+    taxDollars,
+    totalCostDollars: toCurrencyAmount(total),
+    extraPagesCount: pageSelections.reduce((sum, entry) => sum + entry.count, 0),
+    extraPagesType: pageSummary || null,
+    extraFeaturesCount: featureSelections.reduce((sum, entry) => sum + entry.count, 0),
+    extraFeaturesType: featureSummary || null,
   };
 }
 
@@ -305,6 +535,47 @@ function drawLineItemsTable(doc, lineItems) {
   doc.y = y + 14;
 }
 
+function renderContractTermsWithPageBreaks(doc, text, options = {}) {
+  const width = options.width || 500;
+  const left = options.left || 50;
+  const bottomMargin = options.bottomMargin || 72;
+  const headingPattern = /^\d+\.\s+/;
+  const lines = String(text || '').split('\n');
+
+  for (const rawLine of lines) {
+    const line = rawLine.trim();
+
+    if (!line) {
+      doc.moveDown(0.34);
+      continue;
+    }
+
+    const isHeading = headingPattern.test(line);
+    const fontSize = isHeading ? 10.5 : 9.5;
+    const estimatedHeight = doc.fontSize(fontSize).heightOfString(line, {
+      width,
+      lineGap: 3,
+      align: 'left',
+    });
+
+    const minimumRoom = isHeading ? 90 : 40;
+    if ((doc.y + estimatedHeight > doc.page.height - bottomMargin) || (isHeading && doc.y > doc.page.height - minimumRoom)) {
+      doc.addPage();
+    }
+
+    doc
+      .fontSize(fontSize)
+      .fillColor(isHeading ? '#0f172a' : '#334155')
+      .text(line, left, doc.y, {
+        width,
+        align: 'left',
+        lineGap: 3,
+      });
+  }
+
+  doc.fontSize(10).fillColor('#334155');
+}
+
 function generateInvoicePdf(invoice, clientAccount, profile) {
   return buildPdfBuffer((doc) => {
     const issueDate = invoice.issued_at ? new Date(invoice.issued_at).toLocaleDateString('en-US') : new Date().toLocaleDateString('en-US');
@@ -347,16 +618,18 @@ function generateInvoicePdf(invoice, clientAccount, profile) {
 function generateContractPdf(contract, clientAccount, profile) {
   return buildPdfBuffer((doc) => {
     const businessDate = new Date(contract.created_at || Date.now()).toLocaleDateString('en-US');
-    doc.fontSize(22).fillColor('#0f172a').text('Astronet Studios Project Contract');
+    doc.fontSize(20).fillColor('#0f172a').text('ASTRONET STUDIOS Website Design & Development Agreement');
     doc.moveDown(0.4);
     doc.fontSize(10).fillColor('#334155').text(`Contract #: ${contract.contract_number}`);
     doc.text(`Created: ${new Date(contract.created_at || Date.now()).toLocaleDateString('en-US')}`);
-    doc.text(`Status: ${String(contract.status || '').toUpperCase()}`);
     doc.moveDown(0.8);
 
     doc.fontSize(11).fillColor('#0f172a').text('Client Information');
     doc.fontSize(10).fillColor('#334155').text(profile.company_name || profile.full_name || profile.email);
     doc.text(profile.email || '');
+    if (clientAccount.phone_number || profile.phone) {
+      doc.text(clientAccount.phone_number || profile.phone);
+    }
     if (clientAccount.website_url) {
       doc.text(clientAccount.website_url);
     }
@@ -364,19 +637,31 @@ function generateContractPdf(contract, clientAccount, profile) {
 
     doc.fontSize(11).fillColor('#0f172a').text('Project Details');
     doc.fontSize(10).fillColor('#334155').text(`Project: ${contract.project_title}`);
-    doc.text(`Site Type: ${contract.site_type || 'Not specified'}`);
+    doc.text(`Package: ${contract.package_name || contract.site_type || 'Not specified'}`);
+    doc.text(`Extra pages: ${Number(contract.extra_pages_count || 0)}`);
+    doc.text(`Page Type: ${contract.extra_pages_type || 'None'}`);
+    doc.text(`Extra features: ${Number(contract.extra_features_count || 0)}`);
+    doc.text(`Feature Type: ${contract.extra_features_type || 'None'}`);
+    if (contract.project_description) {
+      doc.text(`Description: ${contract.project_description}`);
+    }
     doc.text(`Timeline: ${contract.timeline || 'Not specified'}`);
+    doc.text(`Subtotal: ${formatCurrency(contract.subtotal_dollars || contract.total_cost_dollars)}`);
+    doc.text(`Sales Tax (NY ${standardNySalesTaxLabel}): ${formatCurrency(contract.tax_dollars || 0)}`);
     doc.text(`Total Cost: ${formatCurrency(contract.total_cost_dollars)}`);
     doc.text(`Due Before Project Start (${contract.deductible_percent}%): ${formatCurrency(contract.deductible_due_dollars)}`);
     doc.text(`Remaining Balance: ${formatCurrency(contract.remaining_balance_dollars)}`);
     doc.moveDown(1);
 
-    doc.fontSize(11).fillColor('#0f172a').text('Terms & Conditions');
+    doc.fontSize(11).fillColor('#0f172a').text('Agreement Terms');
     doc.moveDown(0.5);
-    doc.fontSize(9.5).fillColor('#334155').text(contract.terms_text || defaultContractTerms, {
+    const contractTerms = cleanContractValue(contract.terms_text)
+      ? contract.terms_text
+      : buildContractAgreementText(contract, clientAccount, profile) || defaultContractTerms;
+    renderContractTermsWithPageBreaks(doc, contractTerms, {
       width: 500,
-      align: 'left',
-      lineGap: 3,
+      left: 50,
+      bottomMargin: 72,
     });
 
     const minRoomForSignatures = 220;
@@ -403,7 +688,7 @@ function generateContractPdf(contract, clientAccount, profile) {
       doc.registerFont('contract-signature-font', resolvedSignatureFontPath);
     }
 
-    doc.fillColor('#0f172a').fontSize(11).text('Authorized Business Signature', left + 12, panelTop + 10);
+    doc.fillColor('#0f172a').fontSize(11).text('Developer Signature', left + 12, panelTop + 10);
     doc.fillColor('#334155').fontSize(10).text(`Business Name: ${contractBusinessName}`, left + 12, panelTop + 30);
     doc.text('Signature:', left + 12, panelTop + 52);
     doc.font(canUseCustomSignatureFont ? 'contract-signature-font' : 'Times-Italic')
@@ -418,7 +703,7 @@ function generateContractPdf(contract, clientAccount, profile) {
     doc.text(`Role: ${contractBusinessRole}`, left + 12, panelTop + 96);
 
     const clientTop = panelTop + panelHeight + 18;
-    doc.fillColor('#0f172a').fontSize(11).text('Client Signature (Please Sign And Send Back)', left, clientTop);
+    doc.fillColor('#0f172a').fontSize(11).text('Client Signature', left, clientTop);
 
     const clientSigLabelY = clientTop + 20;
     const clientSigLineY = clientSigLabelY + 13;
@@ -434,6 +719,15 @@ function generateContractPdf(contract, clientAccount, profile) {
     doc.fillColor('#0f172a').text('Date:', left, clientDateLabelY);
     doc.moveTo(left + 35, clientDateLineY)
       .lineTo(left + 220, clientDateLineY)
+      .lineWidth(1)
+      .strokeColor('#475569')
+      .stroke();
+
+    const clientNameLabelY = clientDateLabelY + 24;
+    const clientNameLineY = clientNameLabelY + 13;
+    doc.fillColor('#0f172a').text('Client Name:', left, clientNameLabelY);
+    doc.moveTo(left + 68, clientNameLineY)
+      .lineTo(right - 12, clientNameLineY)
       .lineWidth(1)
       .strokeColor('#475569')
       .stroke();
@@ -648,6 +942,59 @@ async function createSquarePaymentLink(invoice, clientAccount, profile) {
   };
 }
 
+async function createSquareContractDepositPaymentLink(contract, clientAccount, profile) {
+  if (!process.env.SQUARE_ACCESS_TOKEN || !process.env.SQUARE_LOCATION_ID) {
+    return {
+      id: null,
+      url: null,
+      warning: 'Square is not configured yet.',
+    };
+  }
+
+  const response = await fetch(`${squareBaseUrl}/v2/online-checkout/payment-links`, {
+    method: 'POST',
+    headers: {
+      Authorization: `Bearer ${process.env.SQUARE_ACCESS_TOKEN}`,
+      'Content-Type': 'application/json',
+      'Square-Version': '2025-05-21',
+    },
+    body: JSON.stringify({
+      idempotency_key: crypto.randomUUID(),
+      quick_pay: {
+        name: `Deposit for ${contract.contract_number} (${profile.company_name || profile.full_name || profile.email})`,
+        price_money: {
+          amount: Math.round(Number(contract.deductible_due_dollars) * 100),
+          currency: 'USD',
+        },
+        location_id: process.env.SQUARE_LOCATION_ID,
+      },
+      checkout_options: {
+        redirect_url: `${publicAppUrl}/dashboard.html?contract=${contract.id}`,
+      },
+      pre_populated_data: {
+        buyer_email: profile.email,
+      },
+      description: [
+        `Contract deposit for ${contract.contract_number}`,
+        contract.project_title ? `Project: ${contract.project_title}` : null,
+        clientAccount.website_url ? `Website: ${clientAccount.website_url}` : null,
+      ].filter(Boolean).join(' | '),
+    }),
+  });
+
+  const payload = await response.json();
+  if (!response.ok) {
+    const detail = payload.errors?.map((entry) => entry.detail).join(', ');
+    throw new Error(detail || 'Square contract deposit link creation failed.');
+  }
+
+  return {
+    id: payload.payment_link?.id || null,
+    url: payload.payment_link?.url || null,
+    warning: null,
+  };
+}
+
 async function fetchClientInvoices(clientId) {
   const { data, error } = await supabaseAdmin
     .from('invoices')
@@ -757,11 +1104,18 @@ async function sendInvoiceEmail(invoice, clientAccount, profile) {
 
 async function sendContractEmail(contract, clientAccount, profile) {
   const pdfBuffer = await generateContractPdf(contract, clientAccount, profile);
+  const depositLinkText = contract.square_payment_link_url
+    ? `\nAfter you sign, use this link to pay your 25% security deposit: ${contract.square_payment_link_url}`
+    : '\nAfter you sign, use the deposit payment link we send to pay your 25% security deposit.';
+  const depositLinkHtml = contract.square_payment_link_url
+    ? `<p>After you sign, use this link to pay your 25% security deposit: <a href="${contract.square_payment_link_url}">Pay 25% deposit</a></p>`
+    : '<p>After you sign, use the deposit payment link we send to pay your 25% security deposit.</p>';
+
   return sendEmailWithAttachment({
     to: profile.email,
     subject: `Contract ${contract.contract_number} from Astronet Studios`,
-    text: `Hello ${profile.full_name || profile.company_name || 'Client'},\n\nYour project contract is attached as a PDF. Please review, sign, and send the signed contract back by replying to this email.\n\nThank you,\nAstronet Studios`,
-    html: `<p>Hello ${profile.full_name || profile.company_name || 'Client'},</p><p>Your project contract is attached as a PDF.</p><p>Please review, sign, and send the signed contract back by replying to this email.</p><p>Thank you,<br/>Astronet Studios</p>`,
+    text: `Hello ${profile.full_name || profile.company_name || 'Client'},\n\nYour project contract is attached as a PDF. Please review, sign, and send the signed contract back by replying to this email.${depositLinkText}\n\nThank you,\nAstronet Studios`,
+    html: `<p>Hello ${profile.full_name || profile.company_name || 'Client'},</p><p>Your project contract is attached as a PDF.</p><p>Please review, sign, and send the signed contract back by replying to this email.</p>${depositLinkHtml}<p>Thank you,<br/>Astronet Studios</p>`,
     attachmentName: `${contract.contract_number}.pdf`,
     attachmentBuffer: pdfBuffer,
   });
@@ -774,7 +1128,7 @@ async function enrichClients(clientAccounts) {
   const [{ data: profiles, error: profilesError }, { data: invoices, error: invoicesError }, { data: contracts, error: contractsError }] = await Promise.all([
     supabaseAdmin.from('profiles').select('*').in('id', profileIds),
     supabaseAdmin.from('invoices').select('*').in('client_id', clientIds),
-    supabaseAdmin.from('contracts').select('*').in('client_id', clientIds),
+    supabaseAdmin.from('contracts').select('id,client_id').in('client_id', clientIds),
   ]);
 
   if (profilesError) {
@@ -829,6 +1183,83 @@ app.get('/api/config', (_req, res) => {
     supabaseAnonKey: process.env.SUPABASE_ANON_KEY || '',
     publicAppUrl,
   });
+});
+
+app.post('/api/contact', async (req, res) => {
+  try {
+    const fullName = String(req.body.fullName || '').trim();
+    const email = String(req.body.email || '').trim();
+    const phone = String(req.body.phone || '').trim();
+    const company = String(req.body.company || '').trim();
+    const budget = String(req.body.budget || '').trim();
+    const timeline = String(req.body.timeline || '').trim();
+    const message = String(req.body.message || '').trim();
+    const website = String(req.body.website || '').trim();
+
+    if (website) {
+      res.status(200).json({
+        success: true,
+        message: 'Thanks! Your request has been received.',
+      });
+      return;
+    }
+
+    if (!fullName || !email || !message) {
+      res.status(400).json({ error: 'Full name, email, and message are required.' });
+      return;
+    }
+
+    const recipient = process.env.CONTACT_FORM_TO || 'astronetstudios@gmail.com';
+    const subject = `New website inquiry from ${fullName}`;
+    const text = [
+      'New contact form submission',
+      '',
+      `Name: ${fullName}`,
+      `Email: ${email}`,
+      `Phone: ${phone || 'Not provided'}`,
+      `Company: ${company || 'Not provided'}`,
+      `Budget: ${budget || 'Not provided'}`,
+      `Timeline: ${timeline || 'Not provided'}`,
+      '',
+      'Message:',
+      message,
+      '',
+      `Submitted at: ${new Date().toISOString()}`,
+    ].join('\n');
+    const html = `
+      <p><strong>New contact form submission</strong></p>
+      <p><strong>Name:</strong> ${fullName}</p>
+      <p><strong>Email:</strong> ${email}</p>
+      <p><strong>Phone:</strong> ${phone || 'Not provided'}</p>
+      <p><strong>Company:</strong> ${company || 'Not provided'}</p>
+      <p><strong>Budget:</strong> ${budget || 'Not provided'}</p>
+      <p><strong>Timeline:</strong> ${timeline || 'Not provided'}</p>
+      <p><strong>Message:</strong></p>
+      <p>${message.replace(/\n/g, '<br/>')}</p>
+      <p><em>Submitted at: ${new Date().toISOString()}</em></p>
+    `;
+
+    const warning = await sendEmailWithAttachment({
+      to: recipient,
+      subject,
+      text,
+      html,
+      attachmentName: null,
+      attachmentBuffer: null,
+    });
+
+    if (warning) {
+      res.status(503).json({ error: warning });
+      return;
+    }
+
+    res.status(200).json({
+      success: true,
+      message: 'Thank you. Your message has been sent successfully.',
+    });
+  } catch (error) {
+    res.status(500).json({ error: normalizeError(error, 'Unable to send your message right now.') });
+  }
 });
 
 app.get('/api/me', authMiddleware, async (req, res) => {
@@ -1080,7 +1511,7 @@ app.get('/api/admin/overview', authMiddleware, requireAdmin, async (_req, res) =
 
     const { data: contracts, error: contractsError } = await supabaseAdmin
       .from('contracts')
-      .select('*')
+      .select(adminContractSelectFields)
       .order('created_at', { ascending: false });
 
     if (invoicesError) {
@@ -1156,6 +1587,7 @@ app.post('/api/admin/clients', authMiddleware, requireAdmin, async (req, res) =>
       .from('client_accounts')
       .insert({
         profile_id: createdUser.user.id,
+        phone_number: req.body.phoneNumber || null,
         website_url: req.body.websiteUrl,
         website_status: req.body.websiteStatus || 'active',
         subscription_plan: req.body.subscriptionPlan || 'Tier 1 - Basic Care',
@@ -1209,6 +1641,7 @@ app.put('/api/admin/clients/:clientId', authMiddleware, requireAdmin, async (req
     const { data, error } = await supabaseAdmin
       .from('client_accounts')
       .update({
+        phone_number: req.body.phoneNumber || null,
         website_url: req.body.websiteUrl,
         website_status: req.body.websiteStatus,
         subscription_plan: req.body.subscriptionPlan,
@@ -1404,7 +1837,7 @@ app.get('/api/admin/contracts', authMiddleware, requireAdmin, async (_req, res) 
   try {
     const { data, error } = await supabaseAdmin
       .from('contracts')
-      .select('*')
+      .select(adminContractSelectFields)
       .order('created_at', { ascending: false });
 
     if (error) {
@@ -1430,23 +1863,49 @@ app.post('/api/admin/contracts', authMiddleware, requireAdmin, async (req, res) 
     }
 
     const profile = await getProfileByUserId(account.profile_id);
-    const totalCost = toCurrencyAmount(req.body.totalCostDollars);
-    const deductiblePercent = toCurrencyAmount(req.body.deductiblePercent || 25);
+    const pricing = buildContractPricingDetails(req.body);
+    const totalCost = pricing.totalCostDollars;
+    const deductiblePercent = fixedContractDeductiblePercent;
     const deductibleDue = toCurrencyAmount((totalCost * deductiblePercent) / 100);
     const remainingBalance = toCurrencyAmount(totalCost - deductibleDue);
+    const packageName = pricing.packageName || null;
 
     const contractPayload = {
       client_id: req.body.clientId,
       contract_number: buildContractNumber(),
       project_title: req.body.projectTitle,
-      site_type: req.body.siteType || null,
+      project_name: req.body.projectTitle,
+      package_name: packageName,
+      project_description: req.body.projectDescription || null,
+      site_type: packageName,
       timeline: req.body.timeline || null,
+      estimated_completion_weeks: null,
+      extra_pages_count: pricing.extraPagesCount,
+      extra_pages_type: pricing.extraPagesType,
+      extra_features_count: pricing.extraFeaturesCount,
+      extra_features_type: pricing.extraFeaturesType,
+      subtotal_dollars: pricing.subtotalDollars,
+      tax_dollars: pricing.taxDollars,
       total_cost_dollars: totalCost,
       deductible_percent: deductiblePercent,
       deductible_due_dollars: deductibleDue,
       remaining_balance_dollars: remainingBalance,
-      terms_text: req.body.termsText || defaultContractTerms,
+      payment_due_days: fixedContractPaymentDueDays,
+      late_fee_flat_dollars: fixedContractLateFeeFlatDollars,
+      late_fee_percent_monthly: fixedContractLateFeePercentMonthly,
+      revision_rounds: 2,
+      additional_revision_hourly_rate: fixedContractRevisionHourlyRate,
+      additional_revision_per_revision_rate: fixedContractRevisionPerRevisionRate,
+      client_business_name: profile.company_name || null,
+      client_address: profile.address || null,
+      client_phone: profile.phone || null,
+      client_email: profile.email || null,
+      governing_law_state: 'New York',
+      warranty_days: fixedContractWarrantyDays,
+      terms_text: req.body.termsText || null,
       status: req.body.status || 'sent',
+      square_payment_link_id: null,
+      square_payment_link_url: null,
       esign_provider: null,
       esign_status: null,
     };
@@ -1462,8 +1921,33 @@ app.post('/api/admin/contracts', authMiddleware, requireAdmin, async (req, res) 
     }
 
     const warnings = [];
+    let responseContract = contract;
+
+    const depositPaymentLink = await createSquareContractDepositPaymentLink(contract, account, profile);
+    if (depositPaymentLink.url) {
+      const { data: updatedContract, error: updateContractError } = await supabaseAdmin
+        .from('contracts')
+        .update({
+          square_payment_link_id: depositPaymentLink.id,
+          square_payment_link_url: depositPaymentLink.url,
+        })
+        .eq('id', contract.id)
+        .select('*')
+        .single();
+
+      if (updateContractError) {
+        throw updateContractError;
+      }
+
+      responseContract = updatedContract;
+    }
+
+    if (depositPaymentLink.warning) {
+      warnings.push(depositPaymentLink.warning);
+    }
+
     try {
-      const emailWarning = await sendContractEmail(contract, account, profile);
+      const emailWarning = await sendContractEmail(responseContract, account, profile);
       if (emailWarning) {
         warnings.push(emailWarning);
       }
@@ -1472,7 +1956,7 @@ app.post('/api/admin/contracts', authMiddleware, requireAdmin, async (req, res) 
     }
 
     res.status(201).json({
-      contract,
+      contract: responseContract,
       warning: warnings.length ? warnings.join(' ') : null,
     });
   } catch (error) {
@@ -1575,6 +2059,11 @@ app.get('/health', (_req, res) => {
 
 app.get('*', (req, res) => {
   const requestPath = req.path.toLowerCase();
+
+  if (requestPath === '/index.html' || requestPath === '/index') {
+    res.redirect(301, '/');
+    return;
+  }
 
   if (requestPath === '/admin' || requestPath === '/admin.html') {
     res.sendFile(path.join(clientDir, 'admin.html'));
