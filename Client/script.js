@@ -1,11 +1,9 @@
-// ── Intro video ────────────────────────────────
 (function () {
   const overlay = document.getElementById('intro-overlay');
   if (!overlay) return;
 
   const INTRO_START_TIME_SECONDS = 5.7;
 
-  // Skip intro if already played this session
   if (sessionStorage.getItem('introPlayed')) {
     overlay.remove();
     return;
@@ -31,11 +29,9 @@
     try {
       video.currentTime = safeStartTime;
     } catch (_error) {
-      // Some browsers can reject seeking before enough data has loaded.
     }
 
     video.play().catch(() => {
-      // Ignore autoplay failures; user can still skip or interact.
     });
   }
 
@@ -64,7 +60,6 @@ function setStoredConsent(decision) {
   try {
     localStorage.setItem(COOKIE_CONSENT_KEY, decision);
   } catch (_error) {
-    // Ignore storage failures and keep the consent flow functional.
   }
 }
 
