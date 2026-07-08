@@ -477,15 +477,15 @@ main {
 }
 
 .steps article {
-  border: 1px solid var(--line);
+  border: 1px solid rgba(66, 165, 245, 0.28);
   border-radius: var(--radius);
   padding: 1rem;
-  background: linear-gradient(155deg, rgba(88, 53, 174, 0.45), rgba(255, 255, 255, 0.02));
+  background: linear-gradient(155deg, rgba(30, 136, 255, 0.14), rgba(30, 136, 255, 0.03));
 }
 
 .steps span {
   font-family: "Space Mono", monospace;
-  color: #d7b2ff;
+  color: var(--blue-light);
   font-weight: 700;
 }
 
@@ -629,6 +629,47 @@ main {
   opacity: 1;
   transform: translateY(0);
   transition: opacity 0.6s ease, transform 0.6s ease;
+}
+.cookie-banner {
+  position: fixed;
+  left: 50%;
+  bottom: 1rem;
+  z-index: 70;
+  width: min(920px, calc(100vw - 2rem));
+  transform: translateX(-50%);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 1rem 1.1rem;
+  border: 1px solid rgba(66, 165, 245, 0.28);
+  border-radius: 18px;
+  background: linear-gradient(155deg, rgba(10, 18, 41, 0.96), rgba(14, 28, 65, 0.95));
+  box-shadow: 0 18px 40px rgba(0, 0, 0, 0.45);
+  backdrop-filter: blur(10px);
+}
+
+.cookie-banner-copy {
+  display: grid;
+  gap: 0.25rem;
+}
+
+.cookie-banner-title {
+  margin: 0;
+  color: #f5f8ff;
+  font-weight: 700;
+}
+
+.cookie-banner-copy p:last-child {
+  margin: 0;
+  color: var(--muted);
+}
+
+.cookie-banner-actions {
+  display: flex;
+  gap: 0.7rem;
+  flex-wrap: wrap;
+  justify-content: flex-end;
 }
 
 .portal-page {
@@ -1440,6 +1481,20 @@ main {
 
   .about-photo-grid {
     grid-template-columns: 1fr;
+  }
+
+  .cookie-banner {
+    width: min(94vw, 920px);
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .cookie-banner-actions {
+    justify-content: stretch;
+  }
+
+  .cookie-banner-actions .btn {
+    width: 100%;
   }
 
 }

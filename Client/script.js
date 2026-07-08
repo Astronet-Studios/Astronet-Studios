@@ -49,6 +49,93 @@
   }
 })();
 
+const COOKIE_CONSENT_KEY = 'astronetCookieConsent';
+const ANALYTICS_ID = 'G-ZKLVW291RR';
+
+function getStoredConsent() {
+  try {
+    return localStorage.getItem(COOKIE_CONSENT_KEY);
+  } catch (_error) {
+    return null;
+  }
+}
+
+function setStoredConsent(decision) {
+  try {
+    localStorage.setItem(COOKIE_CONSENT_KEY, decision);
+  } catch (_error) {
+    // Ignore storage failures and keep the consent flow functional.
+  }
+}
+
+function loadAnalytics() {
+  if (window.__astronetAnalyticsLoaded) {
+    return;
+  }
+
+  window.__astronetAnalyticsLoaded = true;
+
+  const script = document.createElement('script');
+  script.async = true;
+  script.src = `https://www.googletagmanager.com/gtag/js?id=${ANALYTICS_ID}`;
+  document.head.appendChild(script);
+
+  window.dataLayer = window.dataLayer || [];
+  function gtag() {
+    window.dataLayer.push(arguments);
+  }
+  window.gtag = gtag;
+  gtag('js', new Date());
+  gtag('config', ANALYTICS_ID);
+}
+
+function applyCookieConsent(decision) {
+  setStoredConsent(decision);
+
+  if (decision === 'accepted') {
+    loadAnalytics();
+  }
+}
+
+function createCookieBanner() {
+  const savedConsent = getStoredConsent();
+  if (savedConsent === 'accepted') {
+    loadAnalytics();
+    return;
+  }
+
+  if (savedConsent === 'declined') {
+    return;
+  }
+
+  const banner = document.createElement('section');
+  banner.className = 'cookie-banner';
+  banner.setAttribute('role', 'dialog');
+  banner.setAttribute('aria-live', 'polite');
+  banner.innerHTML = `
+    <div class="cookie-banner-copy">
+      <p class="cookie-banner-title">Privacy choice</p>
+      <p>We use analytics cookies to understand site traffic and improve the experience. Accept or decline to continue.</p>
+    </div>
+    <div class="cookie-banner-actions">
+      <button type="button" class="btn btn-secondary btn-small cookie-decline">Decline</button>
+      <button type="button" class="btn btn-primary btn-small cookie-accept">Accept</button>
+    </div>
+  `;
+
+  document.body.appendChild(banner);
+
+  banner.querySelector('.cookie-accept').addEventListener('click', () => {
+    applyCookieConsent('accepted');
+    banner.remove();
+  });
+
+  banner.querySelector('.cookie-decline').addEventListener('click', () => {
+    applyCookieConsent('declined');
+    banner.remove();
+  });
+}
+
 const menuButton = document.querySelector('.menu-toggle');
 const nav = document.querySelector('.main-nav');
 
@@ -177,3 +264,4 @@ function enhanceLongCopyBlocks() {
 }
 
 enhanceLongCopyBlocks();
+createCookieBanner();
