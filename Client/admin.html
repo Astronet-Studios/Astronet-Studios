@@ -20,7 +20,7 @@
   <div class="bg-orb orb-b" aria-hidden="true"></div>
 
   <header class="site-header">
-    <a href="index.html" class="brand" aria-label="Astronet Studios home">
+    <a href="/" class="brand" aria-label="Astronet Studios home">
       <img src="Astronet Studios Logo.png" alt="Astronet Studios logo" class="brand-logo" />
     </a>
     <div class="portal-header-actions">
@@ -56,6 +56,10 @@
           <label>
             <span>Email</span>
             <input type="email" name="email" required />
+          </label>
+          <label>
+            <span>Phone Number</span>
+            <input type="tel" name="phoneNumber" placeholder="(555) 555-5555" />
           </label>
           <label>
             <span>Password</span>
@@ -138,7 +142,7 @@
           </label>
           <label>
             <span>Tax Amount (USD)</span>
-            <input type="number" name="taxDollars" min="0" step="0.01" inputmode="decimal" placeholder="0.00" value="0.00" />
+            <input type="number" name="taxDollars" min="0" step="0.01" inputmode="decimal" placeholder="0.00" value="0.00" readonly />
           </label>
           <label>
             <span>Due Date</span>
@@ -173,37 +177,48 @@
             <span>Client</span>
             <select name="clientId" id="contract-client-select" required></select>
           </label>
-          <label>
-            <span>Project Title</span>
-            <input type="text" name="projectTitle" required placeholder="Main website redesign and launch" />
-          </label>
           <div class="form-inline-pair">
             <label>
-              <span>Type of Site</span>
-              <select name="siteType" required>
+              <span>Project Title</span>
+              <input type="text" name="projectTitle" required placeholder="Main website redesign and launch" />
+            </label>
+            <label>
+              <span>Package</span>
+              <select name="packageName" required>
                 <option value="Starter Website">Starter Website</option>
                 <option value="Business Website">Business Website</option>
                 <option value="Premium Website">Premium Website</option>
                 <option value="E-Commerce Website">E-Commerce Website</option>
-                <option value="Landing Page">Landing Page</option>
-                <option value="Custom Web App">Custom Web App</option>
               </select>
             </label>
-            <label>
-              <span>Timeline</span>
-              <input type="text" name="timeline" required placeholder="4-6 weeks from kickoff" />
-            </label>
           </div>
-          <div class="form-inline-pair">
-            <label>
-              <span>Total Project Cost (USD)</span>
-              <input type="number" name="totalCostDollars" required min="1" step="0.01" value="1000.00" />
-            </label>
-            <label>
-              <span>Deductible % Due Before Start</span>
-              <input type="number" name="deductiblePercent" required min="1" max="100" step="0.01" value="25.00" />
-            </label>
+          <label>
+            <span>Project Description</span>
+            <textarea name="projectDescription" rows="3" placeholder="Describe the website project scope."></textarea>
+          </label>
+          <label>
+            <span>Timeline</span>
+            <input type="text" name="timeline" required placeholder="4-6 weeks from kickoff" />
+          </label>
+          <div class="multi-option-group" id="contract-extra-pages-group">
+            <div class="multi-option-header">
+              <p>Extra Pages</p>
+              <button type="button" class="btn btn-secondary btn-small" id="add-contract-extra-page-type">Add Page Type</button>
+            </div>
+            <div class="multi-option-rows" id="contract-extra-pages-rows" data-kind="pages"></div>
           </div>
+          <div class="multi-option-group" id="contract-extra-features-group">
+            <div class="multi-option-header">
+              <p>Extra Features</p>
+              <button type="button" class="btn btn-secondary btn-small" id="add-contract-extra-feature-type">Add Feature Type</button>
+            </div>
+            <div class="multi-option-rows" id="contract-extra-features-rows" data-kind="features"></div>
+          </div>
+          <label>
+            <span>Total Project Cost (USD)</span>
+            <input type="number" name="totalCostDollars" required min="1" step="0.01" value="1000.00" readonly />
+          </label>
+          <div id="contract-pricing-preview" class="invoice-pricing-preview" aria-live="polite"></div>
           <label>
             <span>Terms and Conditions (optional override)</span>
             <textarea name="termsText" rows="7" placeholder="Leave blank to use default Astronet Studios terms and conditions."></textarea>
@@ -212,7 +227,9 @@
             <span>Deductible Due (Auto)</span>
             <input type="text" name="deductibleDuePreview" readonly value="$250.00" />
           </label>
-          <button type="submit" class="btn btn-primary">Create Contract</button>
+          <div class="form-button-row">
+            <button type="submit" class="btn btn-primary">Create Contract</button>
+          </div>
           <p class="form-message" id="contract-form-message" aria-live="polite"></p>
         </form>
         </article>

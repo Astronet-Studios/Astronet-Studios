@@ -55,6 +55,8 @@ const extraFeatureTypePricing = {
 
 const extraPageTypeOptions = Object.keys(extraPageTypePricing);
 const extraFeatureTypeOptions = Object.keys(extraFeatureTypePricing);
+const standardNySalesTaxRate = 0.04;
+const standardNySalesTaxLabel = `${(standardNySalesTaxRate * 100).toFixed(0)}%`;
 
 document.addEventListener('DOMContentLoaded', async () => {
   const page = document.body.dataset.page;
@@ -249,10 +251,53 @@ async function initClientDashboard() {
 
   document.getElementById('dashboard-user').textContent = me.user.profile.company_name || me.user.email;
   bindLogout();
+  bindClientPasswordChange();
 
   const data = await apiFetch('/api/me/dashboard');
   renderClientDashboard(data);
   bindClientForms();
+}
+
+function bindClientPasswordChange() {
+  const button = document.getElementById('change-password-button');
+  if (!button) {
+    return;
+  }
+
+  button.addEventListener('click', async () => {
+    const nextPassword = window.prompt('Enter your new password (minimum 8 characters):', '');
+    if (!nextPassword) {
+      return;
+    }
+
+    if (nextPassword.length < 8) {
+      window.alert('Password must be at least 8 characters.');
+      return;
+    }
+
+    const confirmPassword = window.prompt('Confirm your new password:', '');
+    if (confirmPassword !== nextPassword) {
+      window.alert('Passwords do not match.');
+      return;
+    }
+
+    button.disabled = true;
+    button.textContent = 'Saving...';
+
+    try {
+      const { error } = await supabaseClient.auth.updateUser({ password: nextPassword });
+      if (error) {
+        throw error;
+      }
+
+      window.alert('Password updated successfully.');
+    } catch (error) {
+      window.alert(error.message || 'Unable to change password.');
+    } finally {
+      button.disabled = false;
+      button.textContent = 'Change Password';
+    }
+  });
 }
 
 function renderClientDashboard(data) {
@@ -907,7 +952,59 @@ function buildInvoiceLineItems(payload) {
 function calculateInvoiceTotals(payload) {
   const lineItems = buildInvoiceLineItems(payload);
   const subtotal = lineItems.reduce((sum, item) => sum + Number(item.total || 0), 0);
-  const tax = Number(payload.taxDollars || 0);
+  const tax = Number((subtotal * standardNySalesTaxRate).toFixed(2));
+  const total = subtotal + tax;
+
+  return {
+    lineItems,
+    subtotal,
+    tax,
+    total,
+  };
+}
+
+function calculateContractTotals(payload) {
+  const lineItems = [];
+  const packageName = String(payload.packageName || '').trim();
+  const packageBase = siteTypeBasePricing[packageName] || 0;
+
+  if (packageBase > 0) {
+    lineItems.push({
+      name: `${packageName} package`,
+      quantity: 1,
+      unitPrice: packageBase,
+      total: packageBase,
+    });
+  }
+
+  const pageSelections = mergeInvoiceOptionSelections(payload.extraPageSelections);
+  pageSelections.forEach((entry) => {
+    const unit = extraPageTypePricing[entry.type] || 0;
+    if (entry.count > 0 && unit > 0) {
+      lineItems.push({
+        name: `${entry.type} extra pages`,
+        quantity: entry.count,
+        unitPrice: unit,
+        total: entry.count * unit,
+      });
+    }
+  });
+
+  const featureSelections = mergeInvoiceOptionSelections(payload.extraFeatureSelections);
+  featureSelections.forEach((entry) => {
+    const unit = extraFeatureTypePricing[entry.type] || 0;
+    if (entry.count > 0 && unit > 0) {
+      lineItems.push({
+        name: `${entry.type} feature work`,
+        quantity: entry.count,
+        unitPrice: unit,
+        total: entry.count * unit,
+      });
+    }
+  });
+
+  const subtotal = lineItems.reduce((sum, item) => sum + Number(item.total || 0), 0);
+  const tax = Number((subtotal * standardNySalesTaxRate).toFixed(2));
   const total = subtotal + tax;
 
   return {
@@ -946,7 +1043,40 @@ function renderInvoicePricingPreview(totals) {
       <strong>${formatCurrency(totals.subtotal)}</strong>
     </div>
     <div class="invoice-pricing-row total-row">
-      <span>Tax</span>
+      <span>Tax (NY ${standardNySalesTaxLabel})</span>
+      <strong>${formatCurrency(totals.tax)}</strong>
+    </div>
+    <div class="invoice-pricing-row grand-total-row">
+      <span>Total</span>
+      <strong>${formatCurrency(totals.total)}</strong>
+    </div>
+  `;
+}
+
+function renderContractPricingPreview(totals) {
+  const preview = document.getElementById('contract-pricing-preview');
+  if (!preview) {
+    return;
+  }
+
+  const rows = totals.lineItems.length
+    ? totals.lineItems.map((item) => `
+        <div class="invoice-pricing-row">
+          <span>${item.name} x ${item.quantity}</span>
+          <strong>${formatCurrency(item.total)}</strong>
+        </div>
+      `).join('')
+    : '<p class="muted-copy">Choose a package and add-ons to calculate total contract cost.</p>';
+
+  preview.innerHTML = `
+    <p class="invoice-pricing-title">Live Contract Cost</p>
+    ${rows}
+    <div class="invoice-pricing-row total-row">
+      <span>Subtotal</span>
+      <strong>${formatCurrency(totals.subtotal)}</strong>
+    </div>
+    <div class="invoice-pricing-row total-row">
+      <span>Tax (NY ${standardNySalesTaxLabel})</span>
       <strong>${formatCurrency(totals.tax)}</strong>
     </div>
     <div class="invoice-pricing-row grand-total-row">
@@ -986,6 +1116,11 @@ function bindAdminForms() {
   const extraFeaturesRows = document.getElementById('extra-features-rows');
   const addExtraPageTypeButton = document.getElementById('add-extra-page-type');
   const addExtraFeatureTypeButton = document.getElementById('add-extra-feature-type');
+  const contractExtraPagesRows = document.getElementById('contract-extra-pages-rows');
+  const contractExtraFeaturesRows = document.getElementById('contract-extra-features-rows');
+  const addContractExtraPageTypeButton = document.getElementById('add-contract-extra-page-type');
+  const addContractExtraFeatureTypeButton = document.getElementById('add-contract-extra-feature-type');
+  const contractClientSelect = document.getElementById('contract-client-select');
 
   const recalcInvoiceTotal = () => {
     const payload = Object.fromEntries(new FormData(invoiceForm).entries());
@@ -995,6 +1130,7 @@ function bindAdminForms() {
     const manualOverrideEnabled = Boolean(invoiceForm.elements.manualTotalOverride.checked);
 
     if (!manualOverrideEnabled) {
+      invoiceForm.elements.taxDollars.value = totals.tax.toFixed(2);
       invoiceForm.elements.computedTotal.value = formatCurrency(totals.total);
       invoiceForm.elements.finalTotalOverride.value = totals.total.toFixed(2);
       renderInvoicePricingPreview(totals);
@@ -1002,6 +1138,7 @@ function bindAdminForms() {
     }
 
     const manualFinalTotal = parseMoneyInput(invoiceForm.elements.finalTotalOverride.value || totals.total);
+    invoiceForm.elements.taxDollars.value = totals.tax.toFixed(2);
     invoiceForm.elements.computedTotal.value = formatCurrency(manualFinalTotal);
     applyManualInvoiceTotalPreview(totals, manualFinalTotal);
   };
@@ -1016,6 +1153,15 @@ function bindAdminForms() {
     recalcInvoiceTotal();
   };
 
+  const addContractOptionRow = (kind) => {
+    const container = kind === 'pages' ? contractExtraPagesRows : contractExtraFeaturesRows;
+    if (!container) {
+      return;
+    }
+
+    container.appendChild(createInvoiceOptionRow(kind));
+  };
+
   const resetInvoiceOptionRows = () => {
     if (extraPagesRows) {
       extraPagesRows.innerHTML = '';
@@ -1025,6 +1171,18 @@ function bindAdminForms() {
     if (extraFeaturesRows) {
       extraFeaturesRows.innerHTML = '';
       extraFeaturesRows.appendChild(createInvoiceOptionRow('features'));
+    }
+  };
+
+  const resetContractOptionRows = () => {
+    if (contractExtraPagesRows) {
+      contractExtraPagesRows.innerHTML = '';
+      contractExtraPagesRows.appendChild(createInvoiceOptionRow('pages'));
+    }
+
+    if (contractExtraFeaturesRows) {
+      contractExtraFeaturesRows.innerHTML = '';
+      contractExtraFeaturesRows.appendChild(createInvoiceOptionRow('features'));
     }
   };
 
@@ -1042,9 +1200,73 @@ function bindAdminForms() {
 
   const recalcContractDeductible = () => {
     const totalCost = Number(contractForm.elements.totalCostDollars.value || 0);
-    const deductiblePercent = Number(contractForm.elements.deductiblePercent.value || 25);
-    const deductible = totalCost * (deductiblePercent / 100);
+    const deductible = totalCost * 0.25;
     contractForm.elements.deductibleDuePreview.value = formatCurrency(deductible);
+  };
+
+  const recalcContractTotal = () => {
+    const payload = {
+      packageName: contractForm.elements.packageName.value,
+      extraPageSelections: collectInvoiceOptionSelections(contractExtraPagesRows),
+      extraFeatureSelections: collectInvoiceOptionSelections(contractExtraFeaturesRows),
+    };
+    const totals = calculateContractTotals(payload);
+    contractForm.elements.totalCostDollars.value = totals.total.toFixed(2);
+    renderContractPricingPreview(totals);
+    recalcContractDeductible();
+  };
+
+  const buildContractPayload = () => {
+    const payload = Object.fromEntries(new FormData(contractForm).entries());
+    payload.extraPageSelections = collectInvoiceOptionSelections(contractExtraPagesRows);
+    payload.extraFeatureSelections = collectInvoiceOptionSelections(contractExtraFeaturesRows);
+    const mergedPageSelections = mergeInvoiceOptionSelections(payload.extraPageSelections);
+    const mergedFeatureSelections = mergeInvoiceOptionSelections(payload.extraFeatureSelections);
+    payload.extraPagesCount = mergedPageSelections.reduce((sum, entry) => sum + entry.count, 0);
+    payload.extraFeaturesCount = mergedFeatureSelections.reduce((sum, entry) => sum + entry.count, 0);
+    payload.extraPagesType = mergedPageSelections.map((entry) => `${entry.type} x${entry.count}`).join(', ');
+    payload.extraFeaturesType = mergedFeatureSelections.map((entry) => `${entry.type} x${entry.count}`).join(', ');
+    delete payload.deductibleDuePreview;
+    return payload;
+  };
+
+  const fillContractClientDetails = () => {
+    if (!contractClientSelect) {
+      return;
+    }
+
+    const selectedClient = adminClientState.find((entry) => entry.id === contractClientSelect.value);
+    if (!selectedClient) {
+      return;
+    }
+
+    const { profile = {} } = selectedClient;
+
+    if (!contractForm.elements.projectTitle.value) {
+      contractForm.elements.projectTitle.value = `${profile.company_name || profile.full_name || 'Client'} Website Project`;
+    }
+  };
+
+  const createContract = async (payload) => {
+    const messageNode = document.getElementById('contract-form-message');
+    setMessage(messageNode, 'Creating contract...');
+
+    try {
+      const result = await apiFetch('/api/admin/contracts', {
+        method: 'POST',
+        body: JSON.stringify(payload),
+      });
+      contractForm.reset();
+      resetContractOptionRows();
+      recalcContractTotal();
+      setMessage(messageNode, result.warning ? `Contract created. ${result.warning}` : 'Contract created, PDF generated, and sent to client.');
+      await loadAdminOverview();
+      fillContractClientDetails();
+      return true;
+    } catch (error) {
+      setMessage(messageNode, error.message, true);
+      return false;
+    }
   };
 
   [
@@ -1057,13 +1279,20 @@ function bindAdminForms() {
     invoiceForm.elements[field].addEventListener('change', recalcInvoiceTotal);
   });
 
-  [extraPagesRows, extraFeaturesRows].forEach((container) => {
+  [extraPagesRows, extraFeaturesRows, contractExtraPagesRows, contractExtraFeaturesRows].forEach((container) => {
     if (!container) {
       return;
     }
 
-    container.addEventListener('input', recalcInvoiceTotal);
-    container.addEventListener('change', recalcInvoiceTotal);
+    if (container === extraPagesRows || container === extraFeaturesRows) {
+      container.addEventListener('input', recalcInvoiceTotal);
+      container.addEventListener('change', recalcInvoiceTotal);
+    }
+
+    if (container === contractExtraPagesRows || container === contractExtraFeaturesRows) {
+      container.addEventListener('input', recalcContractTotal);
+      container.addEventListener('change', recalcContractTotal);
+    }
     container.addEventListener('click', (event) => {
       const removeButton = event.target.closest('.remove-option-row');
       if (!removeButton) {
@@ -1079,10 +1308,17 @@ function bindAdminForms() {
       row.remove();
 
       if (parent && !parent.querySelector('.multi-option-row')) {
-        parent.appendChild(createInvoiceOptionRow(parent.id === 'extra-pages-rows' ? 'pages' : 'features'));
+        const fallbackKind = parent.dataset.kind || (parent.id.includes('pages') ? 'pages' : 'features');
+        parent.appendChild(createInvoiceOptionRow(fallbackKind));
       }
 
-      recalcInvoiceTotal();
+      if (parent && (parent.id === 'extra-pages-rows' || parent.id === 'extra-features-rows')) {
+        recalcInvoiceTotal();
+      }
+
+      if (parent && (parent.id === 'contract-extra-pages-rows' || parent.id === 'contract-extra-features-rows')) {
+        recalcContractTotal();
+      }
     });
   });
 
@@ -1094,7 +1330,22 @@ function bindAdminForms() {
     addExtraFeatureTypeButton.addEventListener('click', () => addInvoiceOptionRow('features'));
   }
 
+  if (addContractExtraPageTypeButton) {
+    addContractExtraPageTypeButton.addEventListener('click', () => {
+      addContractOptionRow('pages');
+      recalcContractTotal();
+    });
+  }
+
+  if (addContractExtraFeatureTypeButton) {
+    addContractExtraFeatureTypeButton.addEventListener('click', () => {
+      addContractOptionRow('features');
+      recalcContractTotal();
+    });
+  }
+
   resetInvoiceOptionRows();
+  resetContractOptionRows();
 
   invoiceForm.elements.manualTotalOverride.addEventListener('change', toggleInvoiceManualOverride);
 
@@ -1106,14 +1357,22 @@ function bindAdminForms() {
     recalcInvoiceTotal();
   });
 
-  ['totalCostDollars', 'deductiblePercent'].forEach((field) => {
+  ['totalCostDollars'].forEach((field) => {
     contractForm.elements[field].addEventListener('input', recalcContractDeductible);
     contractForm.elements[field].addEventListener('change', recalcContractDeductible);
   });
 
+  contractForm.elements.packageName.addEventListener('input', recalcContractTotal);
+  contractForm.elements.packageName.addEventListener('change', recalcContractTotal);
+
+  if (contractClientSelect) {
+    contractClientSelect.addEventListener('change', fillContractClientDetails);
+  }
+
   recalcInvoiceTotal();
   toggleInvoiceManualOverride();
-  recalcContractDeductible();
+  recalcContractTotal();
+  fillContractClientDetails();
 
   clientForm.addEventListener('submit', async (event) => {
     event.preventDefault();
@@ -1169,7 +1428,7 @@ function bindAdminForms() {
     payload.lineItems = totals.lineItems;
     payload.subtotalDollars = totals.subtotal.toFixed(2);
     payload.totalDollars = finalTotal.toFixed(2);
-    payload.taxDollars = Number(payload.taxDollars || 0).toFixed(2);
+    payload.taxDollars = totals.tax.toFixed(2);
 
     if (manualOverrideEnabled) {
       const adjustment = finalTotal - totals.total;
@@ -1212,26 +1471,12 @@ function bindAdminForms() {
 
   contractForm.addEventListener('submit', async (event) => {
     event.preventDefault();
-    const messageNode = document.getElementById('contract-form-message');
-    setMessage(messageNode, 'Creating contract...');
-
-    const payload = Object.fromEntries(new FormData(contractForm).entries());
-    delete payload.deductibleDuePreview;
-
-    try {
-      const result = await apiFetch('/api/admin/contracts', {
-        method: 'POST',
-        body: JSON.stringify(payload),
-      });
-      contractForm.reset();
-      contractForm.elements.totalCostDollars.value = '1000.00';
-      contractForm.elements.deductiblePercent.value = '25.00';
-      recalcContractDeductible();
-      setMessage(messageNode, result.warning ? `Contract created. ${result.warning}` : 'Contract created, PDF generated, and sent to client.');
-      await loadAdminOverview();
-    } catch (error) {
-      setMessage(messageNode, error.message, true);
+    if (!contractForm.reportValidity()) {
+      return;
     }
+
+    const payload = buildContractPayload();
+    await createContract(payload);
   });
 }
 
@@ -1246,6 +1491,7 @@ function populateClientForm(clientId) {
   form.elements.companyName.value = client.profile.company_name || '';
   form.elements.fullName.value = client.profile.full_name || '';
   form.elements.email.value = client.profile.email || '';
+  form.elements.phoneNumber.value = client.phone_number || '';
   form.elements.password.value = '';
   form.elements.websiteUrl.value = client.website_url || '';
   form.elements.websiteStatus.value = client.website_status || 'active';
@@ -1277,6 +1523,15 @@ function formatMaintenanceTier(value) {
 
 function formatInvoiceDescription(value) {
   return value || 'Website services';
+}
+
+function escapeHtml(value) {
+  return String(value || '')
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
 }
 
 function buildInvoiceDescription(payload) {

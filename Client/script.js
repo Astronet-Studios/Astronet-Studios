@@ -1,9 +1,9 @@
-// ── Intro video ────────────────────────────────
 (function () {
   const overlay = document.getElementById('intro-overlay');
   if (!overlay) return;
 
-  // Skip intro if already played this session
+  const INTRO_START_TIME_SECONDS = 5.7;
+
   if (sessionStorage.getItem('introPlayed')) {
     overlay.remove();
     return;
@@ -18,9 +18,118 @@
     overlay.addEventListener('transitionend', () => overlay.remove(), { once: true });
   }
 
+  function startIntroFromOffset() {
+    if (!video) return;
+
+    const canUseDuration = Number.isFinite(video.duration) && video.duration > 0;
+    const safeStartTime = canUseDuration
+      ? Math.min(INTRO_START_TIME_SECONDS, Math.max(video.duration - 0.05, 0))
+      : INTRO_START_TIME_SECONDS;
+
+    try {
+      video.currentTime = safeStartTime;
+    } catch (_error) {
+    }
+
+    video.play().catch(() => {
+    });
+  }
+
   video.addEventListener('ended', dismiss);
   skipBtn.addEventListener('click', dismiss);
+
+  if (video.readyState >= 1) {
+    startIntroFromOffset();
+  } else {
+    video.addEventListener('loadedmetadata', startIntroFromOffset, { once: true });
+  }
 })();
+
+const COOKIE_CONSENT_KEY = 'astronetCookieConsent';
+const ANALYTICS_ID = 'G-ZKLVW291RR';
+
+function getStoredConsent() {
+  try {
+    return localStorage.getItem(COOKIE_CONSENT_KEY);
+  } catch (_error) {
+    return null;
+  }
+}
+
+function setStoredConsent(decision) {
+  try {
+    localStorage.setItem(COOKIE_CONSENT_KEY, decision);
+  } catch (_error) {
+  }
+}
+
+function loadAnalytics() {
+  if (window.__astronetAnalyticsLoaded) {
+    return;
+  }
+
+  window.__astronetAnalyticsLoaded = true;
+
+  const script = document.createElement('script');
+  script.async = true;
+  script.src = `https://www.googletagmanager.com/gtag/js?id=${ANALYTICS_ID}`;
+  document.head.appendChild(script);
+
+  window.dataLayer = window.dataLayer || [];
+  function gtag() {
+    window.dataLayer.push(arguments);
+  }
+  window.gtag = gtag;
+  gtag('js', new Date());
+  gtag('config', ANALYTICS_ID);
+}
+
+function applyCookieConsent(decision) {
+  setStoredConsent(decision);
+
+  if (decision === 'accepted') {
+    loadAnalytics();
+  }
+}
+
+function createCookieBanner() {
+  const savedConsent = getStoredConsent();
+  if (savedConsent === 'accepted') {
+    loadAnalytics();
+    return;
+  }
+
+  if (savedConsent === 'declined') {
+    return;
+  }
+
+  const banner = document.createElement('section');
+  banner.className = 'cookie-banner';
+  banner.setAttribute('role', 'dialog');
+  banner.setAttribute('aria-live', 'polite');
+  banner.innerHTML = `
+    <div class="cookie-banner-copy">
+      <p class="cookie-banner-title">Privacy choice</p>
+      <p>We use analytics cookies to understand site traffic and improve the experience. Accept or decline to continue.</p>
+    </div>
+    <div class="cookie-banner-actions">
+      <button type="button" class="btn btn-secondary btn-small cookie-decline">Decline</button>
+      <button type="button" class="btn btn-primary btn-small cookie-accept">Accept</button>
+    </div>
+  `;
+
+  document.body.appendChild(banner);
+
+  banner.querySelector('.cookie-accept').addEventListener('click', () => {
+    applyCookieConsent('accepted');
+    banner.remove();
+  });
+
+  banner.querySelector('.cookie-decline').addEventListener('click', () => {
+    applyCookieConsent('declined');
+    banner.remove();
+  });
+}
 
 const menuButton = document.querySelector('.menu-toggle');
 const nav = document.querySelector('.main-nav');
@@ -73,3 +182,139 @@ if (backToTopButton) {
 
   toggleBackToTop();
 }
+
+const contactPageForm = document.getElementById('contact-page-form');
+const contactPageMessage = document.getElementById('contact-form-message');
+
+if (contactPageForm && contactPageMessage) {
+  contactPageForm.addEventListener('submit', async (event) => {
+    event.preventDefault();
+
+    const payload = Object.fromEntries(new FormData(contactPageForm).entries());
+    contactPageMessage.classList.remove('is-error', 'is-success');
+    contactPageMessage.textContent = 'Sending your message...';
+
+    try {
+      const response = await fetch('/api/contact', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(payload),
+      });
+
+      const data = await response.json().catch(() => ({}));
+      if (!response.ok) {
+        throw new Error(data.error || 'Unable to send your message right now.');
+      }
+
+      contactPageForm.reset();
+      contactPageMessage.classList.add('is-success');
+      contactPageMessage.textContent = data.message || 'Thanks. Your message has been sent.';
+    } catch (error) {
+      contactPageMessage.classList.add('is-error');
+      contactPageMessage.textContent = error.message;
+    }
+  });
+}
+
+function enhanceLongCopyBlocks() {
+  const paragraphs = document.querySelectorAll('main p.hero-copy');
+
+  paragraphs.forEach((paragraph) => {
+    if (paragraph.dataset.copyEnhanced === 'true') {
+      return;
+    }
+
+    if (paragraph.querySelector('*')) {
+      return;
+    }
+
+    const rawText = paragraph.textContent.replace(/\s+/g, ' ').trim();
+    if (rawText.length < 240) {
+      return;
+    }
+
+    const sentences = rawText
+      .match(/[^.!?]+[.!?]+|[^.!?]+$/g)
+      ?.map((sentence) => sentence.trim())
+      .filter(Boolean);
+
+    if (!sentences || sentences.length < 3) {
+      return;
+    }
+
+    paragraph.textContent = '';
+    paragraph.classList.add('copy-refined');
+    paragraph.dataset.copyEnhanced = 'true';
+
+    for (let index = 0; index < sentences.length; index += 2) {
+      const chunk = sentences.slice(index, index + 2).join(' ');
+      const chunkNode = document.createElement('span');
+      chunkNode.className = 'copy-chunk';
+      chunkNode.textContent = chunk;
+      paragraph.appendChild(chunkNode);
+    }
+  });
+}
+
+enhanceLongCopyBlocks();
+createCookieBanner();
+
+// ── Shooting stars ──────────────────────────────────────────────
+(function createShootingStars() {
+  const layer = document.createElement('div');
+  layer.className = 'meteor-layer';
+  layer.setAttribute('aria-hidden', 'true');
+
+  const config = [
+    { top: '6%',  delay: '0s',    duration: '9s'  },
+    { top: '23%', delay: '3.8s',  duration: '12s' },
+    { top: '46%', delay: '7.5s',  duration: '10s' },
+    { top: '13%', delay: '14.5s', duration: '11s' },
+  ];
+
+  config.forEach(({ top, delay, duration }) => {
+    const el = document.createElement('div');
+    el.className = 'shooting-star';
+    el.style.top = top;
+    el.style.animationName = 'shoot';
+    el.style.animationDelay = delay;
+    el.style.animationDuration = duration;
+    el.style.animationTimingFunction = 'linear';
+    el.style.animationIterationCount = 'infinite';
+    layer.appendChild(el);
+  });
+
+  document.body.appendChild(layer);
+})();
+
+// ── Staggered grid children reveal ─────────────────────────────
+(function initStaggerReveal() {
+  const grids = document.querySelectorAll(
+    '.card-grid, .steps, .portfolio-grid-home, .trust-proof-grid, .value-strip-grid'
+  );
+
+  if (!grids.length) return;
+
+  const staggerObserver = new IntersectionObserver(
+    (entries) => {
+      entries.forEach((entry) => {
+        if (!entry.isIntersecting) return;
+        [...entry.target.children].forEach((child, i) => {
+          child.style.transitionDelay = `${0.35 + i * 0.11}s`;
+          child.classList.add('child-visible');
+        });
+        staggerObserver.unobserve(entry.target);
+      });
+    },
+    { threshold: 0.1 }
+  );
+
+  grids.forEach((grid) => {
+    [...grid.children].forEach((child) => {
+      child.classList.add('stagger-child');
+    });
+    staggerObserver.observe(grid);
+  });
+})();
