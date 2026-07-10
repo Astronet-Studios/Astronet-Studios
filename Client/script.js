@@ -261,32 +261,34 @@ function enhanceLongCopyBlocks() {
 enhanceLongCopyBlocks();
 createCookieBanner();
 
-// ── Shooting stars ──────────────────────────────────────────────
-(function createShootingStars() {
-  const layer = document.createElement('div');
-  layer.className = 'meteor-layer';
-  layer.setAttribute('aria-hidden', 'true');
+// ── UFO ─────────────────────────────────────────────────────────
+(function createUFO() {
+  const wrapper = document.createElement('div');
+  wrapper.className = 'ufo-wrapper';
+  wrapper.setAttribute('aria-hidden', 'true');
 
-  const config = [
-    { top: '6%',  delay: '0s',    duration: '9s'  },
-    { top: '23%', delay: '3.8s',  duration: '12s' },
-    { top: '46%', delay: '7.5s',  duration: '10s' },
-    { top: '13%', delay: '14.5s', duration: '11s' },
-  ];
+  const saucer = document.createElement('div');
+  saucer.className = 'ufo-saucer';
 
-  config.forEach(({ top, delay, duration }) => {
-    const el = document.createElement('div');
-    el.className = 'shooting-star';
-    el.style.top = top;
-    el.style.animationName = 'shoot';
-    el.style.animationDelay = delay;
-    el.style.animationDuration = duration;
-    el.style.animationTimingFunction = 'linear';
-    el.style.animationIterationCount = 'infinite';
-    layer.appendChild(el);
-  });
+  const dome = document.createElement('div');
+  dome.className = 'ufo-dome';
 
-  document.body.appendChild(layer);
+  const lights = document.createElement('div');
+  lights.className = 'ufo-lights';
+  for (let i = 0; i < 3; i++) {
+    const light = document.createElement('span');
+    light.className = 'ufo-light';
+    lights.appendChild(light);
+  }
+
+  const beam = document.createElement('div');
+  beam.className = 'ufo-beam';
+
+  saucer.appendChild(dome);
+  saucer.appendChild(lights);
+  saucer.appendChild(beam);
+  wrapper.appendChild(saucer);
+  document.body.appendChild(wrapper);
 })();
 
 // ── Staggered grid children reveal ─────────────────────────────
