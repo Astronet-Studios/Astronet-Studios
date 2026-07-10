@@ -260,3 +260,61 @@ function enhanceLongCopyBlocks() {
 
 enhanceLongCopyBlocks();
 createCookieBanner();
+
+// ── Shooting stars ──────────────────────────────────────────────
+(function createShootingStars() {
+  const layer = document.createElement('div');
+  layer.className = 'meteor-layer';
+  layer.setAttribute('aria-hidden', 'true');
+
+  const config = [
+    { top: '6%',  delay: '0s',    duration: '9s'  },
+    { top: '23%', delay: '3.8s',  duration: '12s' },
+    { top: '46%', delay: '7.5s',  duration: '10s' },
+    { top: '13%', delay: '14.5s', duration: '11s' },
+  ];
+
+  config.forEach(({ top, delay, duration }) => {
+    const el = document.createElement('div');
+    el.className = 'shooting-star';
+    el.style.top = top;
+    el.style.animationName = 'shoot';
+    el.style.animationDelay = delay;
+    el.style.animationDuration = duration;
+    el.style.animationTimingFunction = 'linear';
+    el.style.animationIterationCount = 'infinite';
+    layer.appendChild(el);
+  });
+
+  document.body.appendChild(layer);
+})();
+
+// ── Staggered grid children reveal ─────────────────────────────
+(function initStaggerReveal() {
+  const grids = document.querySelectorAll(
+    '.card-grid, .steps, .portfolio-grid-home, .trust-proof-grid, .value-strip-grid'
+  );
+
+  if (!grids.length) return;
+
+  const staggerObserver = new IntersectionObserver(
+    (entries) => {
+      entries.forEach((entry) => {
+        if (!entry.isIntersecting) return;
+        [...entry.target.children].forEach((child, i) => {
+          child.style.transitionDelay = `${0.35 + i * 0.11}s`;
+          child.classList.add('child-visible');
+        });
+        staggerObserver.unobserve(entry.target);
+      });
+    },
+    { threshold: 0.1 }
+  );
+
+  grids.forEach((grid) => {
+    [...grid.children].forEach((child) => {
+      child.classList.add('stagger-child');
+    });
+    staggerObserver.observe(grid);
+  });
+})();
