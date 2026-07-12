@@ -1498,53 +1498,15 @@ main {
   50%       { opacity: 0.9; transform: scale(1.08); }
 }
 
-/* Card hover — lift + glow border */
-.card {
-  transition: transform 0.25s cubic-bezier(0.22, 1, 0.36, 1),
-              box-shadow 0.25s ease,
-              border-color 0.25s ease;
-}
 
-.card:hover {
-  transform: translateY(-5px);
-  border-color: rgba(66, 165, 245, 0.5);
-  box-shadow: 0 22px 52px rgba(30, 136, 255, 0.2), 0 0 0 1px rgba(66, 165, 245, 0.12);
-}
 
-/* Work panel hover */
-.work-panel {
-  transition: transform 0.25s cubic-bezier(0.22, 1, 0.36, 1),
-              box-shadow 0.25s ease,
-              border-color 0.25s ease;
-}
 
-.work-panel:hover {
-  transform: translateY(-5px);
-  border-color: rgba(66, 165, 245, 0.48);
-  box-shadow: 0 22px 52px rgba(30, 136, 255, 0.18);
-}
 
-/* Hero metric tiles — hover lift */
 .hero-metrics li {
-  transition: transform 0.2s ease, border-color 0.2s ease, box-shadow 0.2s ease;
   cursor: default;
 }
 
-.hero-metrics li:hover {
-  transform: translateY(-3px);
-  border-color: rgba(66, 165, 245, 0.55);
-  box-shadow: 0 10px 28px rgba(30, 136, 255, 0.18);
-}
 
-/* Process steps — hover lift */
-.steps article {
-  transition: transform 0.22s ease, border-color 0.22s ease;
-}
-
-.steps article:hover {
-  transform: translateY(-4px);
-  border-color: rgba(66, 165, 245, 0.62);
-}
 
 /* Step numbers — cyan glow pulse */
 .steps span {
@@ -1681,15 +1643,7 @@ main {
               transform 0.7s cubic-bezier(0.22, 1, 0.36, 1);
 }
 
-/* Value strip article hover */
-.value-strip-grid article {
-  transition: transform 0.22s ease, border-color 0.22s ease;
-}
 
-.value-strip-grid article:hover {
-  transform: translateY(-3px);
-  border-color: rgba(66, 165, 245, 0.5);
-}
 
 /* Staggered grid children — revealed by JS observer */
 .stagger-child {
@@ -1716,110 +1670,6 @@ main {
 .service-card-grid-home .card:nth-child(even) {
   background: linear-gradient(165deg, rgba(124, 77, 255, 0.12), rgba(30, 136, 255, 0.02));
   border-color: rgba(124, 77, 255, 0.22);
-}
-
-.service-card-grid-home .card:nth-child(even):hover {
-  border-color: rgba(124, 77, 255, 0.5);
-  box-shadow: 0 22px 52px rgba(124, 77, 255, 0.14);
-}
-
-/* Portfolio cards — teal hover accent */
-.portfolio-card-home:hover {
-  border-color: rgba(0, 188, 212, 0.5) !important;
-  box-shadow: 0 22px 52px rgba(0, 188, 212, 0.14) !important;
-}
-
-/* ── UFO ──────────────────────────────────────────── */
-.ufo-wrapper {
-  position: fixed;
-  top: 20vh;
-  left: -80px;
-  z-index: -1;
-  pointer-events: none;
-  animation: ufo-traverse 42s 10s linear infinite;
-}
-
-.ufo-saucer {
-  position: relative;
-  width: 56px;
-  height: 18px;
-  background: linear-gradient(180deg, #c8daf4 0%, #8aa8d8 55%, #4e6fa8 100%);
-  border-radius: 50%;
-  box-shadow:
-    0 0 14px rgba(66, 165, 245, 0.55),
-    0 3px 6px rgba(0, 0, 0, 0.4);
-  animation: ufo-bob 3.5s ease-in-out infinite;
-}
-
-.ufo-dome {
-  position: absolute;
-  bottom: 12px;
-  left: 50%;
-  transform: translateX(-50%);
-  width: 24px;
-  height: 16px;
-  background: linear-gradient(180deg, rgba(0, 229, 255, 0.75), rgba(30, 136, 255, 0.38));
-  border-radius: 50% 50% 0 0;
-  border: 1px solid rgba(120, 230, 255, 0.65);
-  border-bottom: none;
-  box-shadow: 0 0 8px rgba(0, 229, 255, 0.35);
-}
-
-.ufo-lights {
-  position: absolute;
-  bottom: 2px;
-  left: 0;
-  right: 0;
-  display: flex;
-  justify-content: space-evenly;
-  padding: 0 10px;
-}
-
-.ufo-light {
-  width: 4px;
-  height: 4px;
-  border-radius: 50%;
-  background: #00e5ff;
-}
-
-.ufo-light:nth-child(1) { animation: ufo-blink 1.4s 0s    ease-in-out infinite; }
-.ufo-light:nth-child(2) { animation: ufo-blink 1.4s 0.47s ease-in-out infinite; }
-.ufo-light:nth-child(3) { animation: ufo-blink 1.4s 0.94s ease-in-out infinite; }
-
-.ufo-beam {
-  position: absolute;
-  top: 16px;
-  left: 50%;
-  transform: translateX(-50%);
-  width: 0;
-  height: 0;
-  border-left: 16px solid transparent;
-  border-right: 16px solid transparent;
-  border-top: 44px solid rgba(0, 229, 255, 0.09);
-  filter: blur(5px);
-}
-
-@keyframes ufo-traverse {
-  0%   { transform: translateX(0)              translateY(0);    opacity: 0; }
-  4%   { opacity: 1; }
-  15%  { transform: translateX(15vw)           translateY(-4vh); }
-  30%  { transform: translateX(30vw)           translateY(3vh);  }
-  48%  { transform: translateX(50vw)           translateY(-5vh); }
-  65%  { transform: translateX(68vw)           translateY(2vh);  }
-  80%  { transform: translateX(84vw)           translateY(-2vh); }
-  94%  { opacity: 0.8; }
-  98%  { opacity: 0; }
-  100% { transform: translateX(calc(100vw + 100px)) translateY(1vh); opacity: 0; }
-}
-
-@keyframes ufo-bob {
-  0%, 100% { transform: translateY(0);    }
-  50%       { transform: translateY(-7px); }
-}
-
-@keyframes ufo-blink {
-  0%, 100% { opacity: 0.35; box-shadow: 0 0 3px rgba(0, 229, 255, 0.4); }
-  50%       { opacity: 1;   box-shadow: 0 0 7px rgba(0, 229, 255, 1), 0 0 14px rgba(0, 229, 255, 0.5); }
 }
 
 @media (max-width: 900px) {
@@ -1983,10 +1833,6 @@ main {
   }
 
   .hero-orbit {
-    display: none;
-  }
-
-  .ufo-wrapper {
     display: none;
   }
 

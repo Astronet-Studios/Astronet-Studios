@@ -3,8 +3,20 @@
   if (!overlay) return;
 
   const INTRO_START_TIME_SECONDS = 5.7;
+  const RETURNING_COOKIE = 'astronetReturning';
 
-  if (sessionStorage.getItem('introPlayed')) {
+  function getCookie(name) {
+    return document.cookie.split('; ').some(c => c.startsWith(name + '='));
+  }
+
+  function setReturningCookie() {
+    const expires = new Date();
+    expires.setFullYear(expires.getFullYear() + 1);
+    document.cookie = RETURNING_COOKIE + '=1; expires=' + expires.toUTCString() + '; path=/; SameSite=Lax';
+  }
+
+  // Skip intro for returning visitors or same-session navigations
+  if (getCookie(RETURNING_COOKIE) || sessionStorage.getItem('introPlayed')) {
     overlay.remove();
     return;
   }
@@ -13,6 +25,7 @@
   const skipBtn = document.getElementById('intro-skip');
 
   function dismiss() {
+    setReturningCookie();
     sessionStorage.setItem('introPlayed', '1');
     overlay.classList.add('fade-out');
     overlay.addEventListener('transitionend', () => overlay.remove(), { once: true });
@@ -260,36 +273,6 @@ function enhanceLongCopyBlocks() {
 
 enhanceLongCopyBlocks();
 createCookieBanner();
-
-// ── UFO ─────────────────────────────────────────────────────────
-(function createUFO() {
-  const wrapper = document.createElement('div');
-  wrapper.className = 'ufo-wrapper';
-  wrapper.setAttribute('aria-hidden', 'true');
-
-  const saucer = document.createElement('div');
-  saucer.className = 'ufo-saucer';
-
-  const dome = document.createElement('div');
-  dome.className = 'ufo-dome';
-
-  const lights = document.createElement('div');
-  lights.className = 'ufo-lights';
-  for (let i = 0; i < 3; i++) {
-    const light = document.createElement('span');
-    light.className = 'ufo-light';
-    lights.appendChild(light);
-  }
-
-  const beam = document.createElement('div');
-  beam.className = 'ufo-beam';
-
-  saucer.appendChild(dome);
-  saucer.appendChild(lights);
-  saucer.appendChild(beam);
-  wrapper.appendChild(saucer);
-  document.body.appendChild(wrapper);
-})();
 
 // ── Staggered grid children reveal ─────────────────────────────
 (function initStaggerReveal() {
