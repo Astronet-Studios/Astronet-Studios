@@ -274,6 +274,48 @@ function enhanceLongCopyBlocks() {
 enhanceLongCopyBlocks();
 createCookieBanner();
 
+// ── Twinkling stars ─────────────────────────────────────────────
+(function initTwinklingStars() {
+  const container = document.querySelector('.starfield');
+  if (!container) return;
+
+  const STAR_COUNT = 120;
+  const COLORS = [
+    'rgba(255,255,255,VAL)',
+    'rgba(180,220,255,VAL)',
+    'rgba(66,165,245,VAL)',
+    'rgba(0,229,255,VAL)',
+  ];
+
+  const frag = document.createDocumentFragment();
+
+  for (let i = 0; i < STAR_COUNT; i++) {
+    const star = document.createElement('span');
+    const size    = (Math.random() * 2 + 0.5).toFixed(2);          // 0.5–2.5 px
+    const x       = (Math.random() * 100).toFixed(3);
+    const y       = (Math.random() * 100).toFixed(3);
+    const dur     = (Math.random() * 5 + 2).toFixed(2);            // 2–7 s
+    const delay   = (Math.random() * 8).toFixed(2);                // 0–8 s offset
+    const baseOp  = (Math.random() * 0.25 + 0.75).toFixed(2);      // 0.75–1.0
+    const color   = COLORS[Math.floor(Math.random() * COLORS.length)].replace('VAL', baseOp);
+
+    star.style.cssText =
+      'position:absolute;' +
+      'left:' + x + '%;' +
+      'top:'  + y + '%;' +
+      'width:'  + size + 'px;' +
+      'height:' + size + 'px;' +
+      'border-radius:50%;' +
+      'background:' + color + ';' +
+      'animation:star-twinkle ' + dur + 's ease-in-out ' + delay + 's infinite;' +
+      'will-change:opacity,transform,filter;';
+
+    frag.appendChild(star);
+  }
+
+  container.appendChild(frag);
+})();
+
 // ── Staggered grid children reveal ─────────────────────────────
 (function initStaggerReveal() {
   const grids = document.querySelectorAll(
