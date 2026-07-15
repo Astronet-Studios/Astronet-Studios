@@ -4,7 +4,8 @@
   "description": "Astronet Studios marketing site with client and admin portals.",
   "main": "server/index.js",
   "scripts": {
-    "start": "node server/index.js && open http://localhost:3000"
+    "test": "node server/index.js && open http://localhost:3000",
+    "start": "node server/index.js"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.50.0",
