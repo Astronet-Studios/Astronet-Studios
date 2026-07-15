@@ -11,6 +11,7 @@ let adminSearchFilters = {
 };
 
 const maintenanceTierLabels = {
+  'Tier 1 - Hosting': 'Tier 1 - Hosting ($25/month)',
   'Tier 1 - Basic Care': 'Tier 1 - Basic Care ($49/month)',
   'Tier 2 - Growth Care': 'Tier 2 - Growth Care ($149/month)',
   'Tier 3 - Business Care': 'Tier 3 - Business Care ($299/month)',
@@ -18,6 +19,7 @@ const maintenanceTierLabels = {
 };
 
 const maintenanceTierAmounts = {
+  'Tier 1 - Hosting': 25,
   'Tier 1 - Basic Care': 49,
   'Tier 2 - Growth Care': 149,
   'Tier 3 - Business Care': 299,
@@ -1495,7 +1497,7 @@ function populateClientForm(clientId) {
   form.elements.password.value = '';
   form.elements.websiteUrl.value = client.website_url || '';
   form.elements.websiteStatus.value = client.website_status || 'active';
-  form.elements.subscriptionPlan.value = client.subscription_plan || 'Tier 1 - Basic Care';
+  form.elements.subscriptionPlan.value = client.subscription_plan || 'Tier 1 - Hosting';
   window.scrollTo({ top: 0, behavior: 'smooth' });
 }
 
