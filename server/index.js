@@ -18,9 +18,16 @@ const squareBaseUrl = process.env.SQUARE_ENVIRONMENT === 'production'
   ? 'https://connect.squareup.com'
   : 'https://connect.squareupsandbox.com';
 const maintenanceTierAmounts = {
+  'Tier 1 - Hosting': 25,
+  'Tier 2 - Basic Care': 49,
+  'Tier 3 - Growth Care': 149,
+  'Tier 4 - Business Care': 299,
+  'Tier 5 - Full Management': 499,
+  // Legacy aliases for older saved tier names.
   'Tier 1 - Basic Care': 49,
   'Tier 2 - Growth Care': 149,
   'Tier 3 - Business Care': 299,
+  'Tier 4 - Full Management': 499,
 };
 const siteTypeBasePricing = {
   'Starter Website': 1000,
@@ -238,8 +245,25 @@ function computeInvoicePaymentLinkAmountDollars(invoice) {
       : invoice.amount_dollars,
     0
   );
-  const remainingBalance = toCurrencyAmount(invoiceTotal * (1 - (fixedContractDeductiblePercent / 100)));
-  return Math.max(0, remainingBalance);
+  const subtotal = parseMoney(invoice.subtotal_dollars, 0);
+  const tax = parseMoney(invoice.tax_dollars, 0);
+  const grossTotal = toCurrencyAmount(subtotal + tax);
+
+  if (grossTotal > 0) {
+    const expectedDiscountedTotal = toCurrencyAmount(grossTotal * (1 - (fixedContractDeductiblePercent / 100)));
+
+    // If already discounted in stored totals, avoid subtracting again.
+    if (Math.abs(invoiceTotal - expectedDiscountedTotal) <= 0.01) {
+      return Math.max(0, invoiceTotal);
+    }
+
+    // Backward compatibility for older invoices stored before post-tax deduction logic.
+    if (Math.abs(invoiceTotal - grossTotal) <= 0.01) {
+      return Math.max(0, expectedDiscountedTotal);
+    }
+  }
+
+  return Math.max(0, invoiceTotal);
 }
 
 function cleanContractValue(value, fallback = '') {
@@ -360,7 +384,7 @@ function parseLineItems(input) {
       unit_price_dollars: toCurrencyAmount(entry.unitPrice || entry.unit_price_dollars || 0),
       total_dollars: toCurrencyAmount(entry.total || entry.total_dollars || 0),
     }))
-    .filter((entry) => entry.name && entry.total_dollars > 0);
+    .filter((entry) => entry.name && Math.abs(entry.total_dollars) > 0);
 }
 
 function buildInvoiceDetails(body) {
@@ -427,8 +451,15 @@ function buildInvoiceDetails(body) {
   }
 
   const subtotal = toCurrencyAmount(invoiceItems.reduce((sum, entry) => sum + parseMoney(entry.total_dollars, 0), 0));
-  const taxDollars = toCurrencyAmount(subtotal * standardNySalesTaxRate);
-  const total = toCurrencyAmount(subtotal + taxDollars);
+  const computedTaxDollars = toCurrencyAmount(subtotal * standardNySalesTaxRate);
+  const grossTotal = toCurrencyAmount(subtotal + computedTaxDollars);
+  const deductionDollars = toCurrencyAmount(grossTotal * (fixedContractDeductiblePercent / 100));
+  const computedTotal = toCurrencyAmount(grossTotal - deductionDollars);
+
+  const hasSubmittedTax = body.taxDollars !== undefined && body.taxDollars !== null && String(body.taxDollars).trim() !== '';
+  const hasSubmittedTotal = body.totalDollars !== undefined && body.totalDollars !== null && String(body.totalDollars).trim() !== '';
+  const taxDollars = hasSubmittedTax ? toCurrencyAmount(parseMoney(body.taxDollars, computedTaxDollars)) : computedTaxDollars;
+  const total = hasSubmittedTotal ? toCurrencyAmount(parseMoney(body.totalDollars, computedTotal)) : computedTotal;
 
   return {
     maintenanceTier: String(body.maintenanceTier || '').trim(),
@@ -486,7 +517,9 @@ function buildContractPricingDetails(body) {
   });
 
   const taxDollars = toCurrencyAmount(subtotal * standardNySalesTaxRate);
-  const total = toCurrencyAmount(subtotal + taxDollars);
+  const computedTotal = toCurrencyAmount(subtotal + taxDollars);
+  const hasSubmittedTotal = body.totalCostDollars !== undefined && body.totalCostDollars !== null && String(body.totalCostDollars).trim() !== '';
+  const total = hasSubmittedTotal ? toCurrencyAmount(parseMoney(body.totalCostDollars, computedTotal)) : computedTotal;
 
   return {
     packageName,
@@ -614,12 +647,29 @@ function generateInvoicePdf(invoice, clientAccount, profile) {
     doc.moveDown(1);
     drawLineItemsTable(doc, Array.isArray(invoice.line_items) ? invoice.line_items : []);
 
-    const subtotal = parseMoney(invoice.subtotal_dollars || invoice.amount_dollars, 0);
-    const tax = parseMoney(invoice.tax_dollars, 0);
     const total = parseMoney(invoice.total_dollars || invoice.amount_dollars, 0);
+    let subtotal = parseMoney(invoice.subtotal_dollars || invoice.amount_dollars, 0);
+    let tax = parseMoney(invoice.tax_dollars, 0);
+    let grossTotal = toCurrencyAmount(subtotal + tax);
+    const expectedTotalFromStored = toCurrencyAmount(grossTotal * (1 - (fixedContractDeductiblePercent / 100)));
+    const looksLikeLegacyGrossTotal = Math.abs(total - grossTotal) <= 0.01;
+
+    // If manual override changed final due amount, rebuild a consistent subtotal/tax/deduction display from total due.
+    if (!looksLikeLegacyGrossTotal && total > 0 && Math.abs(expectedTotalFromStored - total) > 0.01) {
+      const derivedGrossTotal = toCurrencyAmount(total / (1 - (fixedContractDeductiblePercent / 100)));
+      const derivedSubtotal = toCurrencyAmount(derivedGrossTotal / (1 + standardNySalesTaxRate));
+      const derivedTax = toCurrencyAmount(derivedGrossTotal - derivedSubtotal);
+
+      grossTotal = derivedGrossTotal;
+      subtotal = derivedSubtotal;
+      tax = derivedTax;
+    }
+
+    const deduction = toCurrencyAmount(Math.max(0, grossTotal - total));
 
     doc.fontSize(10).fillColor('#334155').text(`Subtotal: ${formatCurrency(subtotal)}`, { align: 'right' });
     doc.text(`Tax: ${formatCurrency(tax)}`, { align: 'right' });
+    doc.text(`-25% Initial Deposit: -${formatCurrency(deduction)}`, { align: 'right' });
     doc.fontSize(12).fillColor('#0f172a').text(`Total Due: ${formatCurrency(total)}`, { align: 'right' });
     doc.moveDown(1);
     doc.fontSize(9).fillColor('#64748b').text('Thank you for choosing Astronet Studios.', { align: 'left' });
@@ -656,12 +706,33 @@ function generateContractPdf(contract, clientAccount, profile) {
     if (contract.project_description) {
       doc.text(`Description: ${contract.project_description}`);
     }
+    const totalCost = toCurrencyAmount(parseMoney(contract.total_cost_dollars, 0));
+    let subtotal = toCurrencyAmount(parseMoney(contract.subtotal_dollars, totalCost));
+    let tax = toCurrencyAmount(parseMoney(contract.tax_dollars, 0));
+    let displayTotalCost = totalCost;
+    const expectedTotalFromStored = toCurrencyAmount(subtotal + tax);
+    const hasOverrideStyleTotals = totalCost > 0 && Math.abs(expectedTotalFromStored - totalCost) > 0.01;
+
+    // For override-style totals, treat stored total as pre-tax base and show tax-added total cost.
+    if (hasOverrideStyleTotals) {
+      subtotal = totalCost;
+      tax = toCurrencyAmount(totalCost * standardNySalesTaxRate);
+      displayTotalCost = toCurrencyAmount(subtotal + tax);
+    }
+
+    const deductiblePercent = parseMoney(contract.deductible_percent, fixedContractDeductiblePercent);
+    const expectedDeductibleDue = toCurrencyAmount((displayTotalCost * deductiblePercent) / 100);
+    const deductibleDue = hasOverrideStyleTotals
+      ? expectedDeductibleDue
+      : toCurrencyAmount(parseMoney(contract.deductible_due_dollars, expectedDeductibleDue));
+    const remainingBalance = toCurrencyAmount(displayTotalCost - deductibleDue);
+
     doc.text(`Timeline: ${contract.timeline || 'Not specified'}`);
-    doc.text(`Subtotal: ${formatCurrency(contract.subtotal_dollars || contract.total_cost_dollars)}`);
-    doc.text(`Sales Tax (NY ${standardNySalesTaxLabel}): ${formatCurrency(contract.tax_dollars || 0)}`);
-    doc.text(`Total Cost: ${formatCurrency(contract.total_cost_dollars)}`);
-    doc.text(`Due Before Project Start (${contract.deductible_percent}%): ${formatCurrency(contract.deductible_due_dollars)}`);
-    doc.text(`Remaining Balance: ${formatCurrency(contract.remaining_balance_dollars)}`);
+    doc.text(`Subtotal: ${formatCurrency(subtotal)}`);
+    doc.text(`Sales Tax (NY ${standardNySalesTaxLabel}): ${formatCurrency(tax)}`);
+    doc.text(`Total Cost: ${formatCurrency(displayTotalCost)}`);
+    doc.text(`-25% Initial Deposit: -${formatCurrency(deductibleDue)}`);
+    doc.text(`Remaining Balance: ${formatCurrency(remainingBalance)}`);
     doc.moveDown(1);
 
     doc.fontSize(11).fillColor('#0f172a').text('Agreement Terms');
@@ -1121,7 +1192,7 @@ async function sendContractEmail(contract, clientAccount, profile) {
     ? `\nAfter you sign, use this link to pay your 25% security deposit: ${contract.square_payment_link_url}`
     : '\nAfter you sign, use the deposit payment link we send to pay your 25% security deposit.';
   const depositLinkHtml = contract.square_payment_link_url
-    ? `<p>After you sign, use this link to pay your 25% security deposit: <a href="${contract.square_payment_link_url}">Pay 25% deposit</a></p>`
+    ? `<p>After you sign, use this link to pay your 25% initial deposit: <a href="${contract.square_payment_link_url}">Pay 25% deposit</a></p>`
     : '<p>After you sign, use the deposit payment link we send to pay your 25% security deposit.</p>';
 
   return sendEmailWithAttachment({

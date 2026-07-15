@@ -220,6 +220,14 @@
             <span>Total Project Cost (USD)</span>
             <input type="number" name="totalCostDollars" required min="1" step="0.01" value="1000.00" readonly />
           </label>
+          <label class="checkbox-label">
+            <input type="checkbox" name="manualContractTotalOverride" />
+            <span>Manually edit final contract total</span>
+          </label>
+          <label>
+            <span>Final Contract Total (USD)</span>
+            <input type="number" name="finalContractTotalOverride" min="0" step="0.01" inputmode="decimal" placeholder="0.00" disabled />
+          </label>
           <div id="contract-pricing-preview" class="invoice-pricing-preview" aria-live="polite"></div>
           <label>
             <span>Terms and Conditions (optional override)</span>

@@ -12,17 +12,28 @@ let adminSearchFilters = {
 
 const maintenanceTierLabels = {
   'Tier 1 - Hosting': 'Tier 1 - Hosting ($25/month)',
-  'Tier 1 - Basic Care': 'Tier 1 - Basic Care ($49/month)',
-  'Tier 2 - Growth Care': 'Tier 2 - Growth Care ($149/month)',
-  'Tier 3 - Business Care': 'Tier 3 - Business Care ($299/month)',
-  'Tier 4 - Full Management': 'Tier 4 - Full Management ($499-$1,200/month)',
+  'Tier 2 - Basic Care': 'Tier 2 - Basic Care ($49/month)',
+  'Tier 3 - Growth Care': 'Tier 3 - Growth Care ($149/month)',
+  'Tier 4 - Business Care': 'Tier 4 - Business Care ($299/month)',
+  'Tier 5 - Full Management': 'Tier 5 - Full Management ($499-$1,200/month)',
+  // Legacy labels kept so existing records still display correctly.
+  'Tier 1 - Basic Care': 'Tier 2 - Basic Care ($49/month)',
+  'Tier 2 - Growth Care': 'Tier 3 - Growth Care ($149/month)',
+  'Tier 3 - Business Care': 'Tier 4 - Business Care ($299/month)',
+  'Tier 4 - Full Management': 'Tier 5 - Full Management ($499-$1,200/month)',
 };
 
 const maintenanceTierAmounts = {
   'Tier 1 - Hosting': 25,
+  'Tier 2 - Basic Care': 49,
+  'Tier 3 - Growth Care': 149,
+  'Tier 4 - Business Care': 299,
+  'Tier 5 - Full Management': 499,
+  // Legacy aliases for older saved tier names.
   'Tier 1 - Basic Care': 49,
   'Tier 2 - Growth Care': 149,
   'Tier 3 - Business Care': 299,
+  'Tier 4 - Full Management': 499,
 };
 
 const siteTypeBasePricing = {
@@ -59,6 +70,8 @@ const extraPageTypeOptions = Object.keys(extraPageTypePricing);
 const extraFeatureTypeOptions = Object.keys(extraFeatureTypePricing);
 const standardNySalesTaxRate = 0.04;
 const standardNySalesTaxLabel = `${(standardNySalesTaxRate * 100).toFixed(0)}%`;
+const invoicePostTaxDeductionRate = 0.25;
+const invoicePostTaxDeductionLabel = `${(invoicePostTaxDeductionRate * 100).toFixed(0)}%`;
 
 document.addEventListener('DOMContentLoaded', async () => {
   const page = document.body.dataset.page;
@@ -955,12 +968,16 @@ function calculateInvoiceTotals(payload) {
   const lineItems = buildInvoiceLineItems(payload);
   const subtotal = lineItems.reduce((sum, item) => sum + Number(item.total || 0), 0);
   const tax = Number((subtotal * standardNySalesTaxRate).toFixed(2));
-  const total = subtotal + tax;
+  const grossTotal = Number((subtotal + tax).toFixed(2));
+  const deduction = Number((grossTotal * invoicePostTaxDeductionRate).toFixed(2));
+  const total = Number((grossTotal - deduction).toFixed(2));
 
   return {
     lineItems,
     subtotal,
     tax,
+    grossTotal,
+    deduction,
     total,
   };
 }
@@ -1048,8 +1065,12 @@ function renderInvoicePricingPreview(totals) {
       <span>Tax (NY ${standardNySalesTaxLabel})</span>
       <strong>${formatCurrency(totals.tax)}</strong>
     </div>
+    <div class="invoice-pricing-row total-row">
+      <span>${invoicePostTaxDeductionLabel} Off After Tax</span>
+      <strong>- ${formatCurrency(totals.deduction || 0)}</strong>
+    </div>
     <div class="invoice-pricing-row grand-total-row">
-      <span>Total</span>
+      <span>Total Due</span>
       <strong>${formatCurrency(totals.total)}</strong>
     </div>
   `;
@@ -1107,6 +1128,27 @@ function applyManualInvoiceTotalPreview(totals, manualFinalTotal) {
   }
 
   renderInvoicePricingPreview(adjustedTotals);
+}
+
+function applyManualContractTotalPreview(totals, manualFinalTotal) {
+  const adjustedTotals = {
+    ...totals,
+    lineItems: [...totals.lineItems],
+    subtotal: totals.subtotal,
+    total: manualFinalTotal,
+  };
+
+  const adjustment = Number((manualFinalTotal - totals.total).toFixed(2));
+  if (Math.abs(adjustment) > 0.001) {
+    adjustedTotals.lineItems.push({
+      name: 'Manual final total adjustment',
+      quantity: 1,
+      total: adjustment,
+    });
+    adjustedTotals.subtotal = Number((totals.subtotal + adjustment).toFixed(2));
+  }
+
+  renderContractPricingPreview(adjustedTotals);
 }
 
 function bindAdminForms() {
@@ -1213,9 +1255,32 @@ function bindAdminForms() {
       extraFeatureSelections: collectInvoiceOptionSelections(contractExtraFeaturesRows),
     };
     const totals = calculateContractTotals(payload);
-    contractForm.elements.totalCostDollars.value = totals.total.toFixed(2);
-    renderContractPricingPreview(totals);
+    const manualOverrideEnabled = Boolean(contractForm.elements.manualContractTotalOverride.checked);
+
+    if (!manualOverrideEnabled) {
+      contractForm.elements.totalCostDollars.value = totals.total.toFixed(2);
+      contractForm.elements.finalContractTotalOverride.value = totals.total.toFixed(2);
+      renderContractPricingPreview(totals);
+      recalcContractDeductible();
+      return;
+    }
+
+    const manualFinalTotal = parseMoneyInput(contractForm.elements.finalContractTotalOverride.value || totals.total);
+    contractForm.elements.totalCostDollars.value = manualFinalTotal.toFixed(2);
+    applyManualContractTotalPreview(totals, manualFinalTotal);
     recalcContractDeductible();
+  };
+
+  const toggleContractManualOverride = () => {
+    const manualOverrideEnabled = Boolean(contractForm.elements.manualContractTotalOverride.checked);
+    contractForm.elements.finalContractTotalOverride.disabled = !manualOverrideEnabled;
+
+    if (manualOverrideEnabled) {
+      contractForm.elements.finalContractTotalOverride.focus();
+      return;
+    }
+
+    recalcContractTotal();
   };
 
   const buildContractPayload = () => {
@@ -1229,6 +1294,8 @@ function bindAdminForms() {
     payload.extraPagesType = mergedPageSelections.map((entry) => `${entry.type} x${entry.count}`).join(', ');
     payload.extraFeaturesType = mergedFeatureSelections.map((entry) => `${entry.type} x${entry.count}`).join(', ');
     delete payload.deductibleDuePreview;
+    delete payload.manualContractTotalOverride;
+    delete payload.finalContractTotalOverride;
     return payload;
   };
 
@@ -1260,6 +1327,9 @@ function bindAdminForms() {
       });
       contractForm.reset();
       resetContractOptionRows();
+      contractForm.elements.manualContractTotalOverride.checked = false;
+      contractForm.elements.finalContractTotalOverride.value = '';
+      contractForm.elements.finalContractTotalOverride.disabled = true;
       recalcContractTotal();
       setMessage(messageNode, result.warning ? `Contract created. ${result.warning}` : 'Contract created, PDF generated, and sent to client.');
       await loadAdminOverview();
@@ -1367,6 +1437,15 @@ function bindAdminForms() {
   contractForm.elements.packageName.addEventListener('input', recalcContractTotal);
   contractForm.elements.packageName.addEventListener('change', recalcContractTotal);
 
+  contractForm.elements.manualContractTotalOverride.addEventListener('change', toggleContractManualOverride);
+  contractForm.elements.finalContractTotalOverride.addEventListener('input', () => {
+    if (!contractForm.elements.manualContractTotalOverride.checked) {
+      return;
+    }
+
+    recalcContractTotal();
+  });
+
   if (contractClientSelect) {
     contractClientSelect.addEventListener('change', fillContractClientDetails);
   }
@@ -1374,6 +1453,7 @@ function bindAdminForms() {
   recalcInvoiceTotal();
   toggleInvoiceManualOverride();
   recalcContractTotal();
+  toggleContractManualOverride();
   fillContractClientDetails();
 
   clientForm.addEventListener('submit', async (event) => {
