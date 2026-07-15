@@ -450,7 +450,11 @@ function buildInvoiceDetails(body) {
     }
   }
 
-  const subtotal = toCurrencyAmount(invoiceItems.reduce((sum, entry) => sum + parseMoney(entry.total_dollars, 0), 0));
+  const computedSubtotalFromItems = toCurrencyAmount(invoiceItems.reduce((sum, entry) => sum + parseMoney(entry.total_dollars, 0), 0));
+  const hasSubmittedSubtotal = body.subtotalDollars !== undefined && body.subtotalDollars !== null && String(body.subtotalDollars).trim() !== '';
+  const subtotal = hasSubmittedSubtotal
+    ? toCurrencyAmount(parseMoney(body.subtotalDollars, computedSubtotalFromItems))
+    : computedSubtotalFromItems;
   const computedTaxDollars = toCurrencyAmount(subtotal * standardNySalesTaxRate);
   const grossTotal = toCurrencyAmount(subtotal + computedTaxDollars);
   const deductionDollars = toCurrencyAmount(grossTotal * (fixedContractDeductiblePercent / 100));
@@ -458,8 +462,12 @@ function buildInvoiceDetails(body) {
 
   const hasSubmittedTax = body.taxDollars !== undefined && body.taxDollars !== null && String(body.taxDollars).trim() !== '';
   const hasSubmittedTotal = body.totalDollars !== undefined && body.totalDollars !== null && String(body.totalDollars).trim() !== '';
-  const taxDollars = hasSubmittedTax ? toCurrencyAmount(parseMoney(body.taxDollars, computedTaxDollars)) : computedTaxDollars;
-  const total = hasSubmittedTotal ? toCurrencyAmount(parseMoney(body.totalDollars, computedTotal)) : computedTotal;
+  const taxDollars = hasSubmittedSubtotal
+    ? computedTaxDollars
+    : (hasSubmittedTax ? toCurrencyAmount(parseMoney(body.taxDollars, computedTaxDollars)) : computedTaxDollars);
+  const total = hasSubmittedSubtotal
+    ? computedTotal
+    : (hasSubmittedTotal ? toCurrencyAmount(parseMoney(body.totalDollars, computedTotal)) : computedTotal);
 
   return {
     maintenanceTier: String(body.maintenanceTier || '').trim(),

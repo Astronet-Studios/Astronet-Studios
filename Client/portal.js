@@ -967,6 +967,11 @@ function buildInvoiceLineItems(payload) {
 function calculateInvoiceTotals(payload) {
   const lineItems = buildInvoiceLineItems(payload);
   const subtotal = lineItems.reduce((sum, item) => sum + Number(item.total || 0), 0);
+  return calculateInvoiceTotalsFromSubtotal(subtotal, lineItems);
+}
+
+function calculateInvoiceTotalsFromSubtotal(subtotalValue, lineItems = []) {
+  const subtotal = Number((Math.max(0, Number(subtotalValue) || 0)).toFixed(2));
   const tax = Number((subtotal * standardNySalesTaxRate).toFixed(2));
   const grossTotal = Number((subtotal + tax).toFixed(2));
   const deduction = Number((grossTotal * invoicePostTaxDeductionRate).toFixed(2));
@@ -1110,21 +1115,14 @@ function renderContractPricingPreview(totals) {
 }
 
 function applyManualInvoiceTotalPreview(totals, manualFinalTotal) {
-  const adjustedTotals = {
-    ...totals,
-    lineItems: [...totals.lineItems],
-    subtotal: totals.subtotal,
-    total: manualFinalTotal,
-  };
-
-  const adjustment = Number((manualFinalTotal - totals.total).toFixed(2));
+  const adjustedTotals = calculateInvoiceTotalsFromSubtotal(manualFinalTotal, [...totals.lineItems]);
+  const adjustment = Number((manualFinalTotal - totals.subtotal).toFixed(2));
   if (Math.abs(adjustment) > 0.001) {
     adjustedTotals.lineItems.push({
-      name: 'Manual final total adjustment',
+      name: 'Manual subtotal adjustment',
       quantity: 1,
       total: adjustment,
     });
-    adjustedTotals.subtotal = Number((totals.subtotal + adjustment).toFixed(2));
   }
 
   renderInvoicePricingPreview(adjustedTotals);
@@ -1176,15 +1174,16 @@ function bindAdminForms() {
     if (!manualOverrideEnabled) {
       invoiceForm.elements.taxDollars.value = totals.tax.toFixed(2);
       invoiceForm.elements.computedTotal.value = formatCurrency(totals.total);
-      invoiceForm.elements.finalTotalOverride.value = totals.total.toFixed(2);
+      invoiceForm.elements.finalTotalOverride.value = totals.subtotal.toFixed(2);
       renderInvoicePricingPreview(totals);
       return;
     }
 
-    const manualFinalTotal = parseMoneyInput(invoiceForm.elements.finalTotalOverride.value || totals.total);
-    invoiceForm.elements.taxDollars.value = totals.tax.toFixed(2);
-    invoiceForm.elements.computedTotal.value = formatCurrency(manualFinalTotal);
-    applyManualInvoiceTotalPreview(totals, manualFinalTotal);
+    const manualSubtotal = parseMoneyInput(invoiceForm.elements.finalTotalOverride.value || totals.subtotal);
+    const manualTotals = calculateInvoiceTotalsFromSubtotal(manualSubtotal);
+    invoiceForm.elements.taxDollars.value = manualTotals.tax.toFixed(2);
+    invoiceForm.elements.computedTotal.value = formatCurrency(manualTotals.total);
+    applyManualInvoiceTotalPreview(totals, manualSubtotal);
   };
 
   const addInvoiceOptionRow = (kind) => {
@@ -1496,7 +1495,8 @@ function bindAdminForms() {
     payload.extraFeatureSelections = collectInvoiceOptionSelections(extraFeaturesRows);
     const totals = calculateInvoiceTotals(payload);
     const manualOverrideEnabled = Boolean(payload.manualTotalOverride);
-    const finalTotal = manualOverrideEnabled ? parseMoneyInput(payload.finalTotalOverride) : totals.total;
+    const manualSubtotal = manualOverrideEnabled ? parseMoneyInput(payload.finalTotalOverride) : totals.subtotal;
+    const finalTotals = manualOverrideEnabled ? calculateInvoiceTotalsFromSubtotal(manualSubtotal) : totals;
 
     const extraPagesTotalCount = payload.extraPageSelections.reduce((sum, entry) => sum + entry.count, 0);
     const extraFeaturesTotalCount = payload.extraFeatureSelections.reduce((sum, entry) => sum + entry.count, 0);
@@ -1507,21 +1507,20 @@ function bindAdminForms() {
     payload.extraFeaturesType = payload.extraFeatureSelections.length === 1 ? payload.extraFeatureSelections[0].type : null;
 
     payload.description = buildInvoiceDescription(payload);
-    payload.lineItems = totals.lineItems;
-    payload.subtotalDollars = totals.subtotal.toFixed(2);
-    payload.totalDollars = finalTotal.toFixed(2);
-    payload.taxDollars = totals.tax.toFixed(2);
+    payload.lineItems = [...totals.lineItems];
+    payload.subtotalDollars = finalTotals.subtotal.toFixed(2);
+    payload.totalDollars = finalTotals.total.toFixed(2);
+    payload.taxDollars = finalTotals.tax.toFixed(2);
 
     if (manualOverrideEnabled) {
-      const adjustment = finalTotal - totals.total;
+      const adjustment = manualSubtotal - totals.subtotal;
       if (Math.abs(adjustment) > 0.001) {
         payload.lineItems.push({
-          name: 'Manual final total adjustment',
+          name: 'Manual subtotal adjustment',
           quantity: 1,
           unitPrice: Number(adjustment.toFixed(2)),
           total: Number(adjustment.toFixed(2)),
         });
-        payload.subtotalDollars = (totals.subtotal + adjustment).toFixed(2);
       }
     }
 
