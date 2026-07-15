@@ -3,8 +3,20 @@
   if (!overlay) return;
 
   const INTRO_START_TIME_SECONDS = 5.7;
+  const RETURNING_COOKIE = 'astronetReturning';
 
-  if (sessionStorage.getItem('introPlayed')) {
+  function getCookie(name) {
+    return document.cookie.split('; ').some(c => c.startsWith(name + '='));
+  }
+
+  function setReturningCookie() {
+    const expires = new Date();
+    expires.setFullYear(expires.getFullYear() + 1);
+    document.cookie = RETURNING_COOKIE + '=1; expires=' + expires.toUTCString() + '; path=/; SameSite=Lax';
+  }
+
+  // Skip intro for returning visitors or same-session navigations
+  if (getCookie(RETURNING_COOKIE) || sessionStorage.getItem('introPlayed')) {
     overlay.remove();
     return;
   }
@@ -13,6 +25,7 @@
   const skipBtn = document.getElementById('intro-skip');
 
   function dismiss() {
+    setReturningCookie();
     sessionStorage.setItem('introPlayed', '1');
     overlay.classList.add('fade-out');
     overlay.addEventListener('transitionend', () => overlay.remove(), { once: true });
@@ -261,38 +274,6 @@ function enhanceLongCopyBlocks() {
 enhanceLongCopyBlocks();
 createCookieBanner();
 
-// ── Shooting star on load ───────────────────────────────────
-(function fireShootingStar() {
-  const container = document.querySelector('.starfield');
-  if (!container) return;
-
-  // Start upper-right, shoot toward lower-left
-  const startX = 70 + Math.random() * 20; // 70–90% from left
-  const startY = 5  + Math.random() * 12; // 5–17% from top
-
-  const star = document.createElement('div');
-  star.setAttribute('aria-hidden', 'true');
-  star.style.cssText =
-    'position:absolute;' +
-    'left:' + startX + '%;' +
-    'top:'  + startY  + '%;' +
-    'width:260px;height:3px;' +
-    'border-radius:999px;' +
-    // Head (bright) on LEFT — direction of travel; tail fades to the right
-    'background:linear-gradient(to right,#fff 0%,rgba(200,230,255,0.95) 30%,rgba(150,200,255,0.4) 70%,transparent 100%);' +
-    'box-shadow:0 0 8px 2px rgba(200,230,255,0.9),0 0 2px 1px #fff;' +
-    'pointer-events:none;' +
-    'opacity:0;';
-
-  container.appendChild(star);
-
-  // Use setTimeout so the delay is reliable regardless of CSS load order
-  setTimeout(function () {
-    star.style.animation = 'shooting-star 1s cubic-bezier(0.4,0,1,1) 1 forwards';
-    star.addEventListener('animationend', () => star.remove(), { once: true });
-  }, 1600);
-})();
-
 // ── Twinkling stars ─────────────────────────────────────────────
 (function initTwinklingStars() {
   const container = document.querySelector('.starfield');
@@ -332,7 +313,7 @@ createCookieBanner();
     frag.appendChild(star);
   }
 
-  document.body.appendChild(layer);
+  container.appendChild(frag);
 })();
 
 // ── Staggered grid children reveal ─────────────────────────────
