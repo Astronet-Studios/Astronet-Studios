@@ -1325,6 +1325,20 @@ main {
   }
 }
 
+@keyframes shooting-star {
+  /*
+   * rotate(20deg) puts the local X-axis at 20deg clockwise.
+   * To get screen movement of left + slightly DOWN we solve:
+   *   screen-x = tx*cos20 - ty*sin20  => negative (leftward)
+   *   screen-y = tx*sin20 + ty*cos20  => positive (downward)
+   * translate(-82vw, 42vw) gives approx -92vw left, +10vw down.
+   */
+  0%   { opacity: 0;   transform: rotate(20deg) translate(0, 0);           }
+  8%   { opacity: 1;                                                         }
+  85%  { opacity: 0.9; transform: rotate(20deg) translate(-82vw, 42vw);     }
+  100% { opacity: 0;   transform: rotate(20deg) translate(-90vw, 46vw);     }
+}
+
 @keyframes drift {
   0% {
     transform: translateY(0);

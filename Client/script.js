@@ -261,30 +261,76 @@ function enhanceLongCopyBlocks() {
 enhanceLongCopyBlocks();
 createCookieBanner();
 
-// ── Shooting stars ──────────────────────────────────────────────
-(function createShootingStars() {
-  const layer = document.createElement('div');
-  layer.className = 'meteor-layer';
-  layer.setAttribute('aria-hidden', 'true');
+// ── Shooting star on load ───────────────────────────────────
+(function fireShootingStar() {
+  const container = document.querySelector('.starfield');
+  if (!container) return;
 
-  const config = [
-    { top: '6%',  delay: '0s',    duration: '9s'  },
-    { top: '23%', delay: '3.8s',  duration: '12s' },
-    { top: '46%', delay: '7.5s',  duration: '10s' },
-    { top: '13%', delay: '14.5s', duration: '11s' },
+  // Start upper-right, shoot toward lower-left
+  const startX = 70 + Math.random() * 20; // 70–90% from left
+  const startY = 5  + Math.random() * 12; // 5–17% from top
+
+  const star = document.createElement('div');
+  star.setAttribute('aria-hidden', 'true');
+  star.style.cssText =
+    'position:absolute;' +
+    'left:' + startX + '%;' +
+    'top:'  + startY  + '%;' +
+    'width:260px;height:3px;' +
+    'border-radius:999px;' +
+    // Head (bright) on LEFT — direction of travel; tail fades to the right
+    'background:linear-gradient(to right,#fff 0%,rgba(200,230,255,0.95) 30%,rgba(150,200,255,0.4) 70%,transparent 100%);' +
+    'box-shadow:0 0 8px 2px rgba(200,230,255,0.9),0 0 2px 1px #fff;' +
+    'pointer-events:none;' +
+    'opacity:0;';
+
+  container.appendChild(star);
+
+  // Use setTimeout so the delay is reliable regardless of CSS load order
+  setTimeout(function () {
+    star.style.animation = 'shooting-star 1s cubic-bezier(0.4,0,1,1) 1 forwards';
+    star.addEventListener('animationend', () => star.remove(), { once: true });
+  }, 1600);
+})();
+
+// ── Twinkling stars ─────────────────────────────────────────────
+(function initTwinklingStars() {
+  const container = document.querySelector('.starfield');
+  if (!container) return;
+
+  const STAR_COUNT = 120;
+  const COLORS = [
+    'rgba(255,255,255,VAL)',
+    'rgba(180,220,255,VAL)',
+    'rgba(66,165,245,VAL)',
+    'rgba(0,229,255,VAL)',
   ];
 
-  config.forEach(({ top, delay, duration }) => {
-    const el = document.createElement('div');
-    el.className = 'shooting-star';
-    el.style.top = top;
-    el.style.animationName = 'shoot';
-    el.style.animationDelay = delay;
-    el.style.animationDuration = duration;
-    el.style.animationTimingFunction = 'linear';
-    el.style.animationIterationCount = 'infinite';
-    layer.appendChild(el);
-  });
+  const frag = document.createDocumentFragment();
+
+  for (let i = 0; i < STAR_COUNT; i++) {
+    const star = document.createElement('span');
+    const size    = (Math.random() * 2 + 0.5).toFixed(2);          // 0.5–2.5 px
+    const x       = (Math.random() * 100).toFixed(3);
+    const y       = (Math.random() * 100).toFixed(3);
+    const dur     = (Math.random() * 5 + 2).toFixed(2);            // 2–7 s
+    const delay   = (Math.random() * 8).toFixed(2);                // 0–8 s offset
+    const baseOp  = (Math.random() * 0.25 + 0.75).toFixed(2);      // 0.75–1.0
+    const color   = COLORS[Math.floor(Math.random() * COLORS.length)].replace('VAL', baseOp);
+
+    star.style.cssText =
+      'position:absolute;' +
+      'left:' + x + '%;' +
+      'top:'  + y + '%;' +
+      'width:'  + size + 'px;' +
+      'height:' + size + 'px;' +
+      'border-radius:50%;' +
+      'background:' + color + ';' +
+      'animation:star-twinkle ' + dur + 's ease-in-out ' + delay + 's infinite;' +
+      'will-change:opacity,transform,filter;';
+
+    frag.appendChild(star);
+  }
 
   document.body.appendChild(layer);
 })();
