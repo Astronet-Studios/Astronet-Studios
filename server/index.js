@@ -231,6 +231,17 @@ function formatCurrency(value) {
   }).format(parseMoney(value, 0));
 }
 
+function computeInvoicePaymentLinkAmountDollars(invoice) {
+  const invoiceTotal = parseMoney(
+    invoice.total_dollars !== undefined && invoice.total_dollars !== null
+      ? invoice.total_dollars
+      : invoice.amount_dollars,
+    0
+  );
+  const remainingBalance = toCurrencyAmount(invoiceTotal * (1 - (fixedContractDeductiblePercent / 100)));
+  return Math.max(0, remainingBalance);
+}
+
 function cleanContractValue(value, fallback = '') {
   const normalized = String(value || '').trim();
   return normalized || fallback;
@@ -899,6 +910,8 @@ async function createSquarePaymentLink(invoice, clientAccount, profile) {
     };
   }
 
+  const paymentAmountDollars = computeInvoicePaymentLinkAmountDollars(invoice);
+
   const response = await fetch(`${squareBaseUrl}/v2/online-checkout/payment-links`, {
     method: 'POST',
     headers: {
@@ -911,7 +924,7 @@ async function createSquarePaymentLink(invoice, clientAccount, profile) {
       quick_pay: {
         name: `${invoice.invoice_number} for ${profile.company_name || profile.full_name || profile.email}`,
         price_money: {
-          amount: Math.round(Number(invoice.amount_dollars) * 100),
+          amount: Math.round(paymentAmountDollars * 100),
           currency: invoice.currency || 'USD',
         },
         location_id: process.env.SQUARE_LOCATION_ID,
