@@ -981,8 +981,44 @@ function requireAdmin(req, res, next) {
   next();
 }
 
-async function createSquarePaymentLink(invoice, clientAccount, profile) {
-  if (!process.env.SQUARE_ACCESS_TOKEN || !process.env.SQUARE_LOCATION_ID) {
+function getSquareErrorDetail(payload, fallbackMessage) {
+  const detail = payload?.errors?.map((entry) => entry.detail).filter(Boolean).join(', ');
+  return detail || fallbackMessage;
+}
+
+async function fetchFirstActiveSquareLocationId() {
+  const response = await fetch(`${squareBaseUrl}/v2/locations`, {
+    method: 'GET',
+    headers: {
+      Authorization: `Bearer ${process.env.SQUARE_ACCESS_TOKEN}`,
+      'Content-Type': 'application/json',
+      'Square-Version': '2025-05-21',
+    },
+  });
+
+  const payload = await response.json();
+  if (!response.ok) {
+    throw new Error(getSquareErrorDetail(payload, 'Unable to load Square locations.'));
+  }
+
+  const activeLocation = (payload.locations || []).find((location) => location.status === 'ACTIVE');
+  if (!activeLocation?.id) {
+    throw new Error('No active Square location found. Activate a location in Square dashboard first.');
+  }
+
+  return activeLocation.id;
+}
+
+async function createSquareQuickPayPaymentLink({
+  name,
+  amountCents,
+  currency,
+  redirectUrl,
+  buyerEmail,
+  description,
+  invalidLocationFallbackError,
+}) {
+  if (!process.env.SQUARE_ACCESS_TOKEN) {
     return {
       id: null,
       url: null,
@@ -990,159 +1026,125 @@ async function createSquarePaymentLink(invoice, clientAccount, profile) {
     };
   }
 
-  const paymentAmountDollars = computeInvoicePaymentLinkAmountDollars(invoice);
+  let locationId = String(process.env.SQUARE_LOCATION_ID || '').trim();
+  let warning = null;
 
-  const response = await fetch(`${squareBaseUrl}/v2/online-checkout/payment-links`, {
-    method: 'POST',
-    headers: {
-      Authorization: `Bearer ${process.env.SQUARE_ACCESS_TOKEN}`,
-      'Content-Type': 'application/json',
-      'Square-Version': '2025-05-21',
-    },
-    body: JSON.stringify({
-      idempotency_key: crypto.randomUUID(),
-      quick_pay: {
-        name: `${invoice.invoice_number} for ${profile.company_name || profile.full_name || profile.email}`,
-        price_money: {
-          amount: Math.round(paymentAmountDollars * 100),
-          currency: invoice.currency || 'USD',
+  if (!locationId) {
+    locationId = await fetchFirstActiveSquareLocationId();
+    warning = `SQUARE_LOCATION_ID was not set. Automatically used active Square location ${locationId}.`;
+  }
+
+  const makeRequest = async (resolvedLocationId) => {
+    const response = await fetch(`${squareBaseUrl}/v2/online-checkout/payment-links`, {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${process.env.SQUARE_ACCESS_TOKEN}`,
+        'Content-Type': 'application/json',
+        'Square-Version': '2025-05-21',
+      },
+      body: JSON.stringify({
+        idempotency_key: crypto.randomUUID(),
+        quick_pay: {
+          name,
+          price_money: {
+            amount: amountCents,
+            currency,
+          },
+          location_id: resolvedLocationId,
         },
-        location_id: process.env.SQUARE_LOCATION_ID,
-      },
-      checkout_options: {
-        redirect_url: `${publicAppUrl}/dashboard.html?invoice=${invoice.id}`,
-      },
-      pre_populated_data: {
-        buyer_email: profile.email,
-      },
-      description: [
-        invoice.description || 'Website services invoice',
-        clientAccount.website_url ? `Website: ${clientAccount.website_url}` : null,
-      ].filter(Boolean).join(' | '),
-    }),
-  });
+        checkout_options: {
+          redirect_url: redirectUrl,
+        },
+        pre_populated_data: {
+          buyer_email: buyerEmail,
+        },
+        description,
+      }),
+    });
 
-  const payload = await response.json();
+    const payload = await response.json();
+    return { response, payload };
+  };
+
+  let { response, payload } = await makeRequest(locationId);
+
   if (!response.ok) {
-    const detail = payload.errors?.map((entry) => entry.detail).join(', ');
-    throw new Error(detail || 'Square payment link creation failed.');
+    const detail = getSquareErrorDetail(payload, invalidLocationFallbackError);
+    const invalidLocation = /invalid location id/i.test(detail);
+
+    if (invalidLocation) {
+      const fallbackLocationId = await fetchFirstActiveSquareLocationId();
+      if (fallbackLocationId !== locationId) {
+        ({ response, payload } = await makeRequest(fallbackLocationId));
+        if (response.ok) {
+          warning = `Configured SQUARE_LOCATION_ID was invalid. Automatically used active Square location ${fallbackLocationId}.`;
+        }
+      }
+    }
+  }
+
+  if (!response.ok) {
+    throw new Error(getSquareErrorDetail(payload, invalidLocationFallbackError));
   }
 
   return {
     id: payload.payment_link?.id || null,
     url: payload.payment_link?.url || null,
-    warning: null,
+    warning,
   };
+}
+
+async function createSquarePaymentLink(invoice, clientAccount, profile) {
+  const paymentAmountDollars = computeInvoicePaymentLinkAmountDollars(invoice);
+
+  return createSquareQuickPayPaymentLink({
+    name: `${invoice.invoice_number} for ${profile.company_name || profile.full_name || profile.email}`,
+    amountCents: Math.round(paymentAmountDollars * 100),
+    currency: invoice.currency || 'USD',
+    redirectUrl: `${publicAppUrl}/dashboard.html?invoice=${invoice.id}`,
+    buyerEmail: profile.email,
+    description: [
+      invoice.description || 'Website services invoice',
+      clientAccount.website_url ? `Website: ${clientAccount.website_url}` : null,
+    ].filter(Boolean).join(' | '),
+    invalidLocationFallbackError: 'Square payment link creation failed.',
+  });
 }
 
 async function createSquareContractDepositPaymentLink(contract, clientAccount, profile) {
-  if (!process.env.SQUARE_ACCESS_TOKEN || !process.env.SQUARE_LOCATION_ID) {
-    return {
-      id: null,
-      url: null,
-      warning: 'Square is not configured yet.',
-    };
-  }
-
-  const response = await fetch(`${squareBaseUrl}/v2/online-checkout/payment-links`, {
-    method: 'POST',
-    headers: {
-      Authorization: `Bearer ${process.env.SQUARE_ACCESS_TOKEN}`,
-      'Content-Type': 'application/json',
-      'Square-Version': '2025-05-21',
-    },
-    body: JSON.stringify({
-      idempotency_key: crypto.randomUUID(),
-      quick_pay: {
-        name: `Deposit for ${contract.contract_number} (${profile.company_name || profile.full_name || profile.email})`,
-        price_money: {
-          amount: Math.round(Number(contract.deductible_due_dollars) * 100),
-          currency: 'USD',
-        },
-        location_id: process.env.SQUARE_LOCATION_ID,
-      },
-      checkout_options: {
-        redirect_url: `${publicAppUrl}/dashboard.html?contract=${contract.id}`,
-      },
-      pre_populated_data: {
-        buyer_email: profile.email,
-      },
-      description: [
-        `Contract deposit for ${contract.contract_number}`,
-        contract.project_title ? `Project: ${contract.project_title}` : null,
-        clientAccount.website_url ? `Website: ${clientAccount.website_url}` : null,
-      ].filter(Boolean).join(' | '),
-    }),
+  return createSquareQuickPayPaymentLink({
+    name: `Deposit for ${contract.contract_number} (${profile.company_name || profile.full_name || profile.email})`,
+    amountCents: Math.round(Number(contract.deductible_due_dollars) * 100),
+    currency: 'USD',
+    redirectUrl: `${publicAppUrl}/dashboard.html?contract=${contract.id}`,
+    buyerEmail: profile.email,
+    description: [
+      `Contract deposit for ${contract.contract_number}`,
+      contract.project_title ? `Project: ${contract.project_title}` : null,
+      clientAccount.website_url ? `Website: ${clientAccount.website_url}` : null,
+    ].filter(Boolean).join(' | '),
+    invalidLocationFallbackError: 'Square contract deposit link creation failed.',
   });
-
-  const payload = await response.json();
-  if (!response.ok) {
-    const detail = payload.errors?.map((entry) => entry.detail).join(', ');
-    throw new Error(detail || 'Square contract deposit link creation failed.');
-  }
-
-  return {
-    id: payload.payment_link?.id || null,
-    url: payload.payment_link?.url || null,
-    warning: null,
-  };
 }
 
 async function createSquareMaintenanceSubscriptionPaymentLink(clientAccount, profile, maintenanceTier) {
-  if (!process.env.SQUARE_ACCESS_TOKEN || !process.env.SQUARE_LOCATION_ID) {
-    return {
-      id: null,
-      url: null,
-      warning: 'Square is not configured yet.',
-    };
-  }
-
   const tierAmount = maintenanceTierAmounts[maintenanceTier];
   if (!tierAmount) {
     throw new Error('Invalid maintenance tier.');
   }
 
-  const response = await fetch(`${squareBaseUrl}/v2/online-checkout/payment-links`, {
-    method: 'POST',
-    headers: {
-      Authorization: `Bearer ${process.env.SQUARE_ACCESS_TOKEN}`,
-      'Content-Type': 'application/json',
-      'Square-Version': '2025-05-21',
-    },
-    body: JSON.stringify({
-      idempotency_key: crypto.randomUUID(),
-      quick_pay: {
-        name: `Monthly maintenance setup (${maintenanceTier})`,
-        price_money: {
-          amount: Math.round(tierAmount * 100),
-          currency: 'USD',
-        },
-        location_id: process.env.SQUARE_LOCATION_ID,
-      },
-      checkout_options: {
-        redirect_url: `${publicAppUrl}/dashboard.html?maintenance=${encodeURIComponent(maintenanceTier)}`,
-      },
-      pre_populated_data: {
-        buyer_email: profile.email,
-      },
-      description: [
-        `Monthly maintenance subscription setup for ${maintenanceTier}`,
-        clientAccount.website_url ? `Website: ${clientAccount.website_url}` : null,
-      ].filter(Boolean).join(' | '),
-    }),
+  return createSquareQuickPayPaymentLink({
+    name: `Monthly maintenance setup (${maintenanceTier})`,
+    amountCents: Math.round(tierAmount * 100),
+    currency: 'USD',
+    redirectUrl: `${publicAppUrl}/dashboard.html?maintenance=${encodeURIComponent(maintenanceTier)}`,
+    buyerEmail: profile.email,
+    description: [
+      `Monthly maintenance subscription setup for ${maintenanceTier}`,
+      clientAccount.website_url ? `Website: ${clientAccount.website_url}` : null,
+    ].filter(Boolean).join(' | '),
+    invalidLocationFallbackError: 'Square maintenance payment link creation failed.',
   });
-
-  const payload = await response.json();
-  if (!response.ok) {
-    const detail = payload.errors?.map((entry) => entry.detail).join(', ');
-    throw new Error(detail || 'Square maintenance payment link creation failed.');
-  }
-
-  return {
-    id: payload.payment_link?.id || null,
-    url: payload.payment_link?.url || null,
-    warning: null,
-  };
 }
 
 function buildMaintenanceCheckoutUrl(squarePaymentLinkUrl) {
