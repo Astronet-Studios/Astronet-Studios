@@ -1579,6 +1579,7 @@ function bindAdminForms() {
           body: JSON.stringify(payload),
         });
         maintenanceSubscriptionForm.reset();
+        await loadAdminOverview();
         setMessage(
           messageNode,
           result.warning

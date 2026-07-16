@@ -1898,8 +1898,21 @@ app.post('/api/admin/maintenance-subscriptions', authMiddleware, requireAdmin, a
       throw accountError;
     }
 
-    const profile = await getProfileByUserId(account.profile_id);
-    const paymentLink = await createSquareMaintenanceSubscriptionPaymentLink(account, profile, maintenanceTier);
+    const { data: updatedAccount, error: updateAccountError } = await supabaseAdmin
+      .from('client_accounts')
+      .update({
+        subscription_plan: maintenanceTier,
+      })
+      .eq('id', account.id)
+      .select('*')
+      .single();
+
+    if (updateAccountError) {
+      throw updateAccountError;
+    }
+
+    const profile = await getProfileByUserId(updatedAccount.profile_id);
+    const paymentLink = await createSquareMaintenanceSubscriptionPaymentLink(updatedAccount, profile, maintenanceTier);
     const warnings = [];
 
     if (paymentLink.warning) {
@@ -1908,7 +1921,7 @@ app.post('/api/admin/maintenance-subscriptions', authMiddleware, requireAdmin, a
 
     try {
       const emailWarning = await sendMaintenanceSubscriptionEmail({
-        clientAccount: account,
+        clientAccount: updatedAccount,
         profile,
         maintenanceTier,
         paymentLinkUrl: paymentLink.url,
@@ -1923,6 +1936,7 @@ app.post('/api/admin/maintenance-subscriptions', authMiddleware, requireAdmin, a
     res.status(201).json({
       success: true,
       paymentLinkUrl: paymentLink.url,
+      subscriptionPlan: updatedAccount.subscription_plan,
       warning: warnings.length ? warnings.join(' ') : null,
     });
   } catch (error) {
