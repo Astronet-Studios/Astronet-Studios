@@ -95,6 +95,29 @@
         </form>
         </article>
 
+        <article class="portal-card admin-card-create-maintenance-subscription">
+        <p class="panel-title">Create Maintenance Subscription</p>
+        <form id="maintenance-subscription-form" class="portal-form compact-form admin-form">
+          <label>
+            <span>Client</span>
+            <select name="clientId" id="maintenance-subscription-client-select" required></select>
+          </label>
+          <label>
+            <span>Maintenance Tier</span>
+            <select name="maintenanceTier" required>
+              <option value="" selected disabled>Select a maintenance tier</option>
+              <option value="Tier 1 - Hosting">Tier 1 - Hosting ($25/month)</option>
+              <option value="Tier 2 - Basic Care">Tier 2 - Basic Care ($49/month)</option>
+              <option value="Tier 3 - Growth Care">Tier 3 - Growth Care ($149/month)</option>
+              <option value="Tier 4 - Business Care">Tier 4 - Business Care ($299/month)</option>
+              <option value="Tier 5 - Full Management">Tier 5 - Full Management ($499-$1,200/month)</option>
+            </select>
+          </label>
+          <button type="submit" class="btn btn-primary">Send Subscription Setup Link</button>
+          <p class="form-message" id="maintenance-subscription-form-message" aria-live="polite"></p>
+        </form>
+        </article>
+
         <article class="portal-card admin-card-create-invoice">
         <p class="panel-title">Create Invoice</p>
         <form id="invoice-form" class="portal-form compact-form admin-form">
@@ -243,6 +266,7 @@
           <p class="form-message" id="contract-form-message" aria-live="polite"></p>
         </form>
         </article>
+
       </div>
     </section>
 

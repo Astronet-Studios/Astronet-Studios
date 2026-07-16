@@ -984,8 +984,10 @@ main {
 
 .admin-actions-grid {
   grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 1rem;
   grid-template-areas:
     "add-client create-invoice"
+    "create-maintenance create-invoice"
     "create-contract create-contract";
 }
 
@@ -995,6 +997,10 @@ main {
 
 .admin-card-create-invoice {
   grid-area: create-invoice;
+}
+
+.admin-card-create-maintenance-subscription {
+  grid-area: create-maintenance;
 }
 
 .admin-card-create-contract {
@@ -1266,6 +1272,18 @@ main {
 
 .request-card p {
   color: var(--muted);
+}
+
+.maintenance-warning-box {
+  border: 1px solid rgba(255, 159, 159, 0.55);
+  border-radius: 12px;
+  background: rgba(82, 20, 20, 0.45);
+  color: #ffd6d6;
+  padding: 0.85rem 0.95rem;
+}
+
+.maintenance-warning-box p {
+  margin: 0;
 }
 
 .about-photo-grid {

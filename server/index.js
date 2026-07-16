@@ -29,6 +29,7 @@ const maintenanceTierAmounts = {
   'Tier 3 - Business Care': 299,
   'Tier 4 - Full Management': 499,
 };
+const recurringPaymentWarningText = '**Important:** If you choose not to enable recurring payments, all invoices must be paid manually by their due date. Missed or late payments may pause services and can result in additional fees. Please ensure payments are submitted on time to avoid interruptions.';
 const siteTypeBasePricing = {
   'Starter Website': 1000,
   'Business Website': 2500,
@@ -1087,6 +1088,71 @@ async function createSquareContractDepositPaymentLink(contract, clientAccount, p
   };
 }
 
+async function createSquareMaintenanceSubscriptionPaymentLink(clientAccount, profile, maintenanceTier) {
+  if (!process.env.SQUARE_ACCESS_TOKEN || !process.env.SQUARE_LOCATION_ID) {
+    return {
+      id: null,
+      url: null,
+      warning: 'Square is not configured yet.',
+    };
+  }
+
+  const tierAmount = maintenanceTierAmounts[maintenanceTier];
+  if (!tierAmount) {
+    throw new Error('Invalid maintenance tier.');
+  }
+
+  const response = await fetch(`${squareBaseUrl}/v2/online-checkout/payment-links`, {
+    method: 'POST',
+    headers: {
+      Authorization: `Bearer ${process.env.SQUARE_ACCESS_TOKEN}`,
+      'Content-Type': 'application/json',
+      'Square-Version': '2025-05-21',
+    },
+    body: JSON.stringify({
+      idempotency_key: crypto.randomUUID(),
+      quick_pay: {
+        name: `Monthly maintenance setup (${maintenanceTier})`,
+        price_money: {
+          amount: Math.round(tierAmount * 100),
+          currency: 'USD',
+        },
+        location_id: process.env.SQUARE_LOCATION_ID,
+      },
+      checkout_options: {
+        redirect_url: `${publicAppUrl}/dashboard.html?maintenance=${encodeURIComponent(maintenanceTier)}`,
+      },
+      pre_populated_data: {
+        buyer_email: profile.email,
+      },
+      description: [
+        `Monthly maintenance subscription setup for ${maintenanceTier}`,
+        clientAccount.website_url ? `Website: ${clientAccount.website_url}` : null,
+      ].filter(Boolean).join(' | '),
+    }),
+  });
+
+  const payload = await response.json();
+  if (!response.ok) {
+    const detail = payload.errors?.map((entry) => entry.detail).join(', ');
+    throw new Error(detail || 'Square maintenance payment link creation failed.');
+  }
+
+  return {
+    id: payload.payment_link?.id || null,
+    url: payload.payment_link?.url || null,
+    warning: null,
+  };
+}
+
+function buildMaintenanceCheckoutUrl(squarePaymentLinkUrl) {
+  if (!squarePaymentLinkUrl) {
+    return null;
+  }
+
+  return `${publicAppUrl}/maintenance-subscription-checkout.html?pay=${encodeURIComponent(squarePaymentLinkUrl)}`;
+}
+
 async function fetchClientInvoices(clientId) {
   const { data, error } = await supabaseAdmin
     .from('invoices')
@@ -1210,6 +1276,25 @@ async function sendContractEmail(contract, clientAccount, profile) {
     html: `<p>Hello ${profile.full_name || profile.company_name || 'Client'},</p><p>Your project contract is attached as a PDF.</p><p>Please review, sign, and send the signed contract back by replying to this email.</p>${depositLinkHtml}<p>Thank you,<br/>Astronet Studios</p>`,
     attachmentName: `${contract.contract_number}.pdf`,
     attachmentBuffer: pdfBuffer,
+  });
+}
+
+async function sendMaintenanceSubscriptionEmail({ clientAccount, profile, maintenanceTier, paymentLinkUrl }) {
+  const hostedCheckoutUrl = buildMaintenanceCheckoutUrl(paymentLinkUrl);
+  const paymentLinkText = hostedCheckoutUrl
+    ? `\nHere is your payment link to set up your monthly maintenance subscription with a Square payment link: ${hostedCheckoutUrl}\n\nIf needed, direct Square link: ${paymentLinkUrl}`
+    : '\nSquare payment link will appear as soon as the integration is fully active.';
+  const paymentLinkHtml = hostedCheckoutUrl
+    ? `<p>Here is your payment link to set up your monthly maintenance subscription with a Square payment link: <a href="${hostedCheckoutUrl}">Set up maintenance subscription payment</a></p><p>If needed, direct Square link: <a href="${paymentLinkUrl}">Open Square checkout</a></p>`
+    : '<p>Square payment link will appear as soon as the integration is fully active.</p>';
+
+  return sendEmailWithAttachment({
+    to: profile.email,
+    subject: `Maintenance Subscription Setup (${maintenanceTier}) from Astronet Studios`,
+    text: `Hello ${profile.full_name || profile.company_name || 'Client'},\n\nYour maintenance tier is set to ${maintenanceTier}.${paymentLinkText}\n\nPlease select the recurring payment or save-card option in checkout so monthly billing can run automatically.\n\n${recurringPaymentWarningText}\n\nThank you,\nAstronet Studios`,
+    html: `<p>Hello ${profile.full_name || profile.company_name || 'Client'},</p><p>Your maintenance tier is set to <strong>${maintenanceTier}</strong>.</p>${paymentLinkHtml}<p>Please select the recurring payment or save-card option in checkout so monthly billing can run automatically.</p><p><strong>Important:</strong> If you choose not to enable recurring payments, all invoices must be paid manually by their due date. Missed or late payments may pause services and can result in additional fees. Please ensure payments are submitted on time to avoid interruptions.</p><p>Thank you,<br/>Astronet Studios</p>`,
+    attachmentName: null,
+    attachmentBuffer: null,
   });
 }
 
@@ -1790,6 +1875,56 @@ app.delete('/api/admin/clients/:clientId', authMiddleware, requireAdmin, async (
     res.status(204).end();
   } catch (error) {
     res.status(500).json({ error: normalizeError(error, 'Unable to delete client.') });
+  }
+});
+
+app.post('/api/admin/maintenance-subscriptions', authMiddleware, requireAdmin, async (req, res) => {
+  try {
+    const maintenanceTier = String(req.body.maintenanceTier || '').trim();
+    if (!maintenanceTier || !maintenanceTierAmounts[maintenanceTier]) {
+      res.status(400).json({ error: 'A valid maintenance tier is required.' });
+      return;
+    }
+
+    const { data: account, error: accountError } = await supabaseAdmin
+      .from('client_accounts')
+      .select('*')
+      .eq('id', req.body.clientId)
+      .single();
+
+    if (accountError) {
+      throw accountError;
+    }
+
+    const profile = await getProfileByUserId(account.profile_id);
+    const paymentLink = await createSquareMaintenanceSubscriptionPaymentLink(account, profile, maintenanceTier);
+    const warnings = [];
+
+    if (paymentLink.warning) {
+      warnings.push(paymentLink.warning);
+    }
+
+    try {
+      const emailWarning = await sendMaintenanceSubscriptionEmail({
+        clientAccount: account,
+        profile,
+        maintenanceTier,
+        paymentLinkUrl: paymentLink.url,
+      });
+      if (emailWarning) {
+        warnings.push(emailWarning);
+      }
+    } catch (emailError) {
+      warnings.push(`Maintenance subscription email failed: ${normalizeError(emailError, 'Unknown email error.')}`);
+    }
+
+    res.status(201).json({
+      success: true,
+      paymentLinkUrl: paymentLink.url,
+      warning: warnings.length ? warnings.join(' ') : null,
+    });
+  } catch (error) {
+    res.status(500).json({ error: normalizeError(error, 'Unable to create maintenance subscription payment link.') });
   }
 });
 
