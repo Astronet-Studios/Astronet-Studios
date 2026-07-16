@@ -29,6 +29,18 @@ const maintenanceTierAmounts = {
   'Tier 3 - Business Care': 299,
   'Tier 4 - Full Management': 499,
 };
+const maintenanceTierSquarePlanIds = {
+  'Tier 1 - Hosting': String(process.env.SQUARE_SUBSCRIPTION_PLAN_TIER1_HOSTING || '').trim(),
+  'Tier 2 - Basic Care': String(process.env.SQUARE_SUBSCRIPTION_PLAN_TIER2_BASIC_CARE || '').trim(),
+  'Tier 3 - Growth Care': String(process.env.SQUARE_SUBSCRIPTION_PLAN_TIER3_GROWTH_CARE || '').trim(),
+  'Tier 4 - Business Care': String(process.env.SQUARE_SUBSCRIPTION_PLAN_TIER4_BUSINESS_CARE || '').trim(),
+  'Tier 5 - Full Management': String(process.env.SQUARE_SUBSCRIPTION_PLAN_TIER5_FULL_MANAGEMENT || '').trim(),
+  // Legacy aliases for older saved tier names.
+  'Tier 1 - Basic Care': String(process.env.SQUARE_SUBSCRIPTION_PLAN_TIER2_BASIC_CARE || '').trim(),
+  'Tier 2 - Growth Care': String(process.env.SQUARE_SUBSCRIPTION_PLAN_TIER3_GROWTH_CARE || '').trim(),
+  'Tier 3 - Business Care': String(process.env.SQUARE_SUBSCRIPTION_PLAN_TIER4_BUSINESS_CARE || '').trim(),
+  'Tier 4 - Full Management': String(process.env.SQUARE_SUBSCRIPTION_PLAN_TIER5_FULL_MANAGEMENT || '').trim(),
+};
 const recurringPaymentWarningText = '**Important:** If you choose not to enable recurring payments, all invoices must be paid manually by their due date. Missed or late payments may pause services and can result in additional fees. Please ensure payments are submitted on time to avoid interruptions.';
 const siteTypeBasePricing = {
   'Starter Website': 1000,
@@ -1094,6 +1106,53 @@ async function createSquareQuickPayPaymentLink({
   };
 }
 
+async function createSquareSubscriptionPlanPaymentLink({
+  subscriptionPlanId,
+  redirectUrl,
+  buyerEmail,
+  description,
+  invalidPlanFallbackError,
+}) {
+  if (!process.env.SQUARE_ACCESS_TOKEN) {
+    return {
+      id: null,
+      url: null,
+      warning: 'Square is not configured yet.',
+    };
+  }
+
+  const response = await fetch(`${squareBaseUrl}/v2/online-checkout/payment-links`, {
+    method: 'POST',
+    headers: {
+      Authorization: `Bearer ${process.env.SQUARE_ACCESS_TOKEN}`,
+      'Content-Type': 'application/json',
+      'Square-Version': '2025-05-21',
+    },
+    body: JSON.stringify({
+      idempotency_key: crypto.randomUUID(),
+      checkout_options: {
+        subscription_plan_id: subscriptionPlanId,
+        redirect_url: redirectUrl,
+      },
+      pre_populated_data: {
+        buyer_email: buyerEmail,
+      },
+      description,
+    }),
+  });
+
+  const payload = await response.json();
+  if (!response.ok) {
+    throw new Error(getSquareErrorDetail(payload, invalidPlanFallbackError));
+  }
+
+  return {
+    id: payload.payment_link?.id || null,
+    url: payload.payment_link?.url || null,
+    warning: null,
+  };
+}
+
 async function createSquarePaymentLink(invoice, clientAccount, profile) {
   const paymentAmountDollars = computeInvoicePaymentLinkAmountDollars(invoice);
 
@@ -1133,17 +1192,22 @@ async function createSquareMaintenanceSubscriptionPaymentLink(clientAccount, pro
     throw new Error('Invalid maintenance tier.');
   }
 
-  return createSquareQuickPayPaymentLink({
-    name: `Monthly maintenance setup (${maintenanceTier})`,
-    amountCents: Math.round(tierAmount * 100),
-    currency: 'USD',
+  const subscriptionPlanId = maintenanceTierSquarePlanIds[maintenanceTier];
+  if (!subscriptionPlanId) {
+    throw new Error(
+      `Square subscription plan is not configured for ${maintenanceTier}. Set SQUARE_SUBSCRIPTION_PLAN_* env variables for maintenance tiers.`
+    );
+  }
+
+  return createSquareSubscriptionPlanPaymentLink({
+    subscriptionPlanId,
     redirectUrl: `${publicAppUrl}/dashboard.html?maintenance=${encodeURIComponent(maintenanceTier)}`,
     buyerEmail: profile.email,
     description: [
       `Monthly maintenance subscription setup for ${maintenanceTier}`,
       clientAccount.website_url ? `Website: ${clientAccount.website_url}` : null,
     ].filter(Boolean).join(' | '),
-    invalidLocationFallbackError: 'Square maintenance payment link creation failed.',
+    invalidPlanFallbackError: 'Square maintenance subscription checkout link creation failed.',
   });
 }
 
