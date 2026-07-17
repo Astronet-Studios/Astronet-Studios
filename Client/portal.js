@@ -320,6 +320,25 @@ function renderClientDashboard(data) {
   document.getElementById('website-url').textContent = data.clientAccount.website_url || 'Website URL not added yet.';
   document.getElementById('subscription-plan').textContent = formatMaintenanceTier(data.clientAccount.subscription_plan);
 
+  const subscribeButton = document.getElementById('subscribe-now-button');
+  const subscribeMessage = document.getElementById('subscribe-now-message');
+  if (subscribeButton && data.clientAccount.subscription_plan) {
+    subscribeButton.hidden = false;
+    subscribeButton.addEventListener('click', async () => {
+      subscribeButton.disabled = true;
+      setMessage(subscribeMessage, 'Loading checkout...');
+      try {
+        const result = await apiFetch('/api/me/subscription-checkout-url');
+        setMessage(subscribeMessage, '');
+        window.open(result.url, '_blank', 'noopener,noreferrer');
+      } catch (error) {
+        setMessage(subscribeMessage, error.message, true);
+      } finally {
+        subscribeButton.disabled = false;
+      }
+    });
+  }
+
   const unpaidTotal = data.openInvoices.reduce((sum, invoice) => sum + Number(invoice.amount_dollars || 0), 0);
   document.getElementById('invoice-balance').textContent = formatCurrency(unpaidTotal);
   document.getElementById('invoice-balance-caption').textContent = data.openInvoices.length

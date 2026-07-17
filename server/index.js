@@ -41,6 +41,18 @@ const maintenanceTierSquarePlanIds = {
   'Tier 3 - Business Care': String(process.env.SQUARE_SUBSCRIPTION_PLAN_TIER4_BUSINESS_CARE || '').trim(),
   'Tier 4 - Full Management': String(process.env.SQUARE_SUBSCRIPTION_PLAN_TIER5_FULL_MANAGEMENT || '').trim(),
 };
+const maintenanceTierSquareCheckoutUrls = {
+  'Tier 1 - Hosting': String(process.env.SQUARE_SUBSCRIPTION_URL_TIER1_HOSTING || '').trim(),
+  'Tier 2 - Basic Care': String(process.env.SQUARE_SUBSCRIPTION_URL_TIER2_BASIC_CARE || '').trim(),
+  'Tier 3 - Growth Care': String(process.env.SQUARE_SUBSCRIPTION_URL_TIER3_GROWTH_CARE || '').trim(),
+  'Tier 4 - Business Care': String(process.env.SQUARE_SUBSCRIPTION_URL_TIER4_BUSINESS_CARE || '').trim(),
+  'Tier 5 - Full Management': String(process.env.SQUARE_SUBSCRIPTION_URL_TIER5_FULL_MANAGEMENT || '').trim(),
+  // Legacy aliases for older saved tier names.
+  'Tier 1 - Basic Care': String(process.env.SQUARE_SUBSCRIPTION_URL_TIER2_BASIC_CARE || '').trim(),
+  'Tier 2 - Growth Care': String(process.env.SQUARE_SUBSCRIPTION_URL_TIER3_GROWTH_CARE || '').trim(),
+  'Tier 3 - Business Care': String(process.env.SQUARE_SUBSCRIPTION_URL_TIER4_BUSINESS_CARE || '').trim(),
+  'Tier 4 - Full Management': String(process.env.SQUARE_SUBSCRIPTION_URL_TIER5_FULL_MANAGEMENT || '').trim(),
+};
 const recurringPaymentWarningText = '**Important:** If you choose not to enable recurring payments, all invoices must be paid manually by their due date. Missed or late payments may pause services and can result in additional fees. Please ensure payments are submitted on time to avoid interruptions.';
 const siteTypeBasePricing = {
   'Starter Website': 1000,
@@ -1668,6 +1680,32 @@ app.post('/api/me/subscription-change', authMiddleware, async (req, res) => {
   }
 });
 
+app.get('/api/me/subscription-checkout-url', authMiddleware, async (req, res) => {
+  if (req.user.profile.role !== 'client') {
+    res.status(403).json({ error: 'Client access required.' });
+    return;
+  }
+
+  try {
+    const account = await getClientAccountByProfileId(req.user.id);
+    const tier = account.subscription_plan;
+    if (!tier) {
+      res.status(404).json({ error: 'No subscription plan has been assigned to your account yet.' });
+      return;
+    }
+
+    const checkoutUrl = maintenanceTierSquareCheckoutUrls[tier];
+    if (!checkoutUrl) {
+      res.status(404).json({ error: 'Subscription checkout is not yet configured for your plan. Please contact Astronet Studios.' });
+      return;
+    }
+
+    res.json({ url: checkoutUrl, tier });
+  } catch (error) {
+    res.status(500).json({ error: normalizeError(error, 'Unable to retrieve subscription checkout URL.') });
+  }
+});
+
 app.post('/api/me/invoices/:invoiceId/payment-link', authMiddleware, async (req, res) => {
   if (req.user.profile.role !== 'client') {
     res.status(403).json({ error: 'Client access required.' });
@@ -1941,6 +1979,56 @@ app.delete('/api/admin/clients/:clientId', authMiddleware, requireAdmin, async (
     res.status(204).end();
   } catch (error) {
     res.status(500).json({ error: normalizeError(error, 'Unable to delete client.') });
+  }
+});
+
+app.get('/api/admin/square-subscription-plans', authMiddleware, requireAdmin, async (_req, res) => {
+  if (!process.env.SQUARE_ACCESS_TOKEN) {
+    res.status(500).json({ error: 'SQUARE_ACCESS_TOKEN is not set.' });
+    return;
+  }
+
+  try {
+    // The Square Catalog API lists subscription plans via object type filter.
+    const response = await fetch(
+      `${squareBaseUrl}/v2/catalog/list?types=SUBSCRIPTION_PLAN`,
+      {
+        method: 'GET',
+        headers: {
+          Authorization: `Bearer ${process.env.SQUARE_ACCESS_TOKEN}`,
+          'Content-Type': 'application/json',
+          'Square-Version': '2025-05-21',
+        },
+      }
+    );
+
+    const payload = await response.json();
+    if (!response.ok) {
+      res.status(502).json({ error: getSquareErrorDetail(payload, 'Failed to fetch Square subscription plans.') });
+      return;
+    }
+
+    const plans = (payload.objects || []).map((obj) => ({
+      id: obj.id,
+      name: obj.subscription_plan_data?.name || '(unnamed)',
+      phases: (obj.subscription_plan_data?.phases || []).map((phase) => ({
+        cadence: phase.cadence,
+        recurringPriceMoney: phase.recurring_price_money,
+      })),
+    }));
+
+    // Show which env var each configured plan ID came from so the admin can verify mappings.
+    const configured = Object.entries(maintenanceTierSquarePlanIds)
+      .filter(([, id]) => id)
+      .map(([tier, id]) => ({ tier, id }));
+
+    res.json({
+      environment: process.env.SQUARE_ENVIRONMENT || 'sandbox',
+      plans,
+      configured,
+    });
+  } catch (error) {
+    res.status(500).json({ error: normalizeError(error, 'Unable to fetch Square subscription plans.') });
   }
 });
 
