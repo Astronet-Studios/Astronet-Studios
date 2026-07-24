@@ -170,9 +170,33 @@ const supabaseAdmin = hasSupabaseConfig
       },
     })
   : null;
+const portalPageCookieName = 'astronet_portal_page';
+const portalPageCookieTtlMs = 1000 * 60 * 60 * 8;
+const portalPageCookieSecret = String(process.env.ADMIN_PAGE_COOKIE_SECRET || process.env.SUPABASE_SERVICE_ROLE_KEY || '').trim();
 
 app.use(express.json());
 app.use(express.urlencoded({ extended: false }));
+app.use((req, res, next) => {
+  const requestPath = req.path.toLowerCase();
+
+  if (requestPath === '/admin' || requestPath === '/admin.html') {
+    if (!hasPortalPageAccess(req, ['admin'])) {
+      res.redirect(302, '/portal-login.html');
+      return;
+    }
+
+    res.set('Cache-Control', 'no-store');
+  } else if (requestPath === '/dashboard' || requestPath === '/dashboard.html') {
+    if (!hasPortalPageAccess(req, ['client', 'admin'])) {
+      res.redirect(302, '/portal-login.html');
+      return;
+    }
+
+    res.set('Cache-Control', 'no-store');
+  }
+
+  next();
+});
 app.use(express.static(clientDir));
 
 app.use((req, res, next) => {
@@ -193,6 +217,112 @@ function ensureSupabase(res) {
     error: 'Supabase is not configured. Add SUPABASE_URL, SUPABASE_ANON_KEY, and SUPABASE_SERVICE_ROLE_KEY.',
   });
   return false;
+}
+
+function parseCookies(req) {
+  const cookieHeader = req.headers.cookie;
+  if (!cookieHeader) {
+    return {};
+  }
+
+  return cookieHeader.split(';').reduce((cookies, cookiePart) => {
+    const separatorIndex = cookiePart.indexOf('=');
+    if (separatorIndex === -1) {
+      return cookies;
+    }
+
+    const key = cookiePart.slice(0, separatorIndex).trim();
+    const value = cookiePart.slice(separatorIndex + 1).trim();
+    cookies[key] = decodeURIComponent(value);
+    return cookies;
+  }, {});
+}
+
+function signPortalPageToken(payload) {
+  if (!portalPageCookieSecret) {
+    return null;
+  }
+
+  const body = Buffer.from(JSON.stringify(payload)).toString('base64url');
+  const signature = crypto.createHmac('sha256', portalPageCookieSecret).update(body).digest('base64url');
+  return `${body}.${signature}`;
+}
+
+function verifyPortalPageToken(token) {
+  if (!token || !portalPageCookieSecret) {
+    return false;
+  }
+
+  const [body, signature] = String(token).split('.');
+  if (!body || !signature) {
+    return false;
+  }
+
+  const expectedSignature = crypto.createHmac('sha256', portalPageCookieSecret).update(body).digest('base64url');
+  const providedSignature = Buffer.from(signature);
+  const expectedSignatureBuffer = Buffer.from(expectedSignature);
+
+  if (providedSignature.length !== expectedSignatureBuffer.length) {
+    return false;
+  }
+
+  if (!crypto.timingSafeEqual(providedSignature, expectedSignatureBuffer)) {
+    return false;
+  }
+
+  try {
+    const payload = JSON.parse(Buffer.from(body, 'base64url').toString('utf8'));
+    return ['client', 'admin'].includes(payload.role) && Number.isFinite(payload.expiresAt) && payload.expiresAt > Date.now();
+  } catch (_error) {
+    return false;
+  }
+}
+
+function hasPortalPageAccess(req, allowedRoles = ['client', 'admin']) {
+  const cookies = parseCookies(req);
+  const token = cookies[portalPageCookieName];
+
+  if (!verifyPortalPageToken(token)) {
+    return false;
+  }
+
+  try {
+    const payload = JSON.parse(Buffer.from(token.split('.')[0], 'base64url').toString('utf8'));
+    return allowedRoles.includes(payload.role);
+  } catch (_error) {
+    return false;
+  }
+}
+
+function setPortalPageCookie(res, userId, role) {
+  const token = signPortalPageToken({
+    userId,
+    role,
+    expiresAt: Date.now() + portalPageCookieTtlMs,
+  });
+
+  if (!token) {
+    return false;
+  }
+
+  res.cookie(portalPageCookieName, token, {
+    httpOnly: true,
+    sameSite: 'lax',
+    secure: process.env.NODE_ENV === 'production',
+    maxAge: portalPageCookieTtlMs,
+    path: '/',
+  });
+
+  return true;
+}
+
+function clearPortalPageCookie(res) {
+  res.clearCookie(portalPageCookieName, {
+    httpOnly: true,
+    sameSite: 'lax',
+    secure: process.env.NODE_ENV === 'production',
+    path: '/',
+  });
 }
 
 function normalizeError(error, fallbackMessage) {
@@ -2364,6 +2494,27 @@ app.get('/health', (_req, res) => {
   res.json({ ok: true });
 });
 
+app.post('/api/portal/page-access', authMiddleware, (req, res) => {
+  const role = req.user.profile.role;
+
+  if (!['client', 'admin'].includes(role)) {
+    res.status(403).json({ error: 'Portal access required.' });
+    return;
+  }
+
+  if (!setPortalPageCookie(res, req.user.id, role)) {
+    res.status(500).json({ error: 'Unable to create portal page access cookie.' });
+    return;
+  }
+
+  res.json({ ok: true });
+});
+
+app.delete('/api/portal/page-access', (_req, res) => {
+  clearPortalPageCookie(res);
+  res.json({ ok: true });
+});
+
 app.get('*', (req, res) => {
   const requestPath = req.path.toLowerCase();
 
@@ -2378,6 +2529,12 @@ app.get('*', (req, res) => {
   }
 
   if (requestPath === '/dashboard' || requestPath === '/dashboard.html') {
+    if (!hasPortalPageAccess(req, ['client', 'admin'])) {
+      res.redirect(302, '/portal-login.html');
+      return;
+    }
+
+    res.set('Cache-Control', 'no-store');
     res.sendFile(path.join(clientDir, 'dashboard.html'));
     return;
   }

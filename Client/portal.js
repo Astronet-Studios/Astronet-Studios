@@ -219,6 +219,8 @@ async function redirectForRole(preferredMode) {
     throw new Error('This account is not allowed into the admin dashboard.');
   }
 
+  await apiFetch('/api/portal/page-access', { method: 'POST' });
+
   window.location.href = role === 'admin' ? 'admin.html' : 'dashboard.html';
 }
 
@@ -1619,6 +1621,12 @@ function bindLogout() {
   }
 
   button.addEventListener('click', async () => {
+    try {
+      await fetchWithAuth('/api/portal/page-access', { method: 'DELETE' });
+    } catch (_error) {
+      // Ignore cookie cleanup failures and complete the logout.
+    }
+
     await supabaseClient.auth.signOut();
     window.location.href = 'portal-login.html';
   });
