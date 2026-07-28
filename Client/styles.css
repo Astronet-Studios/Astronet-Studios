@@ -987,7 +987,6 @@ main {
   gap: 1rem;
   grid-template-areas:
     "add-client create-invoice"
-    "create-maintenance create-invoice"
     "create-contract create-contract";
 }
 
@@ -997,10 +996,6 @@ main {
 
 .admin-card-create-invoice {
   grid-area: create-invoice;
-}
-
-.admin-card-create-maintenance-subscription {
-  grid-area: create-maintenance;
 }
 
 .admin-card-create-contract {

@@ -499,13 +499,9 @@ async function loadAdminOverview() {
 
   const invoiceSelect = document.getElementById('invoice-client-select');
   const contractSelect = document.getElementById('contract-client-select');
-  const maintenanceSubscriptionSelect = document.getElementById('maintenance-subscription-client-select');
   const options = adminClientState.map((client) => `<option value="${client.id}">${client.profile.company_name || client.profile.email}</option>`).join('');
   invoiceSelect.innerHTML = options;
   contractSelect.innerHTML = options;
-  if (maintenanceSubscriptionSelect) {
-    maintenanceSubscriptionSelect.innerHTML = options;
-  }
 }
 
 function normalizeSearchValue(value) {
@@ -1178,7 +1174,6 @@ function bindAdminForms() {
   const clientForm = document.getElementById('client-form');
   const invoiceForm = document.getElementById('invoice-form');
   const contractForm = document.getElementById('contract-form');
-  const maintenanceSubscriptionForm = document.getElementById('maintenance-subscription-form');
   const resetButton = document.getElementById('client-form-reset');
   const extraPagesRows = document.getElementById('extra-pages-rows');
   const extraFeaturesRows = document.getElementById('extra-features-rows');
@@ -1586,32 +1581,6 @@ function bindAdminForms() {
     await createContract(payload);
   });
 
-  if (maintenanceSubscriptionForm) {
-    maintenanceSubscriptionForm.addEventListener('submit', async (event) => {
-      event.preventDefault();
-      const messageNode = document.getElementById('maintenance-subscription-form-message');
-      setMessage(messageNode, 'Sending subscription setup link...');
-
-      const payload = Object.fromEntries(new FormData(maintenanceSubscriptionForm).entries());
-
-      try {
-        const result = await apiFetch('/api/admin/maintenance-subscriptions', {
-          method: 'POST',
-          body: JSON.stringify(payload),
-        });
-        maintenanceSubscriptionForm.reset();
-        await loadAdminOverview();
-        setMessage(
-          messageNode,
-          result.warning
-            ? `Subscription setup email sent. ${result.warning}`
-            : 'Subscription setup email sent to client.'
-        );
-      } catch (error) {
-        setMessage(messageNode, error.message, true);
-      }
-    });
-  }
 }
 
 function populateClientForm(clientId) {
